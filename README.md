@@ -8,7 +8,7 @@ Plataforma white label para disparar pipelines Nextflow de bioinformática na m�
 |---|---|---|
 | Node.js 24 ou superior | Rodar a plataforma (sem outras dependências) | Sim |
 | Nextflow e Java compatível | Executar as pipelines | Sim |
-| Token do Seqera | Gerar o link de acompanhamento | Para ter o link |
+| Token da Seqera | Gerar o link de acompanhamento | Para ter o link |
 | CLI `bs`, autenticada com `bs auth` | Usar projetos do BaseSpace | Para usar BaseSpace |
 | Docker ou similar | Pipelines com perfil de contêiner | Conforme a pipeline |
 
@@ -103,11 +103,11 @@ O **Histórico** lista os disparos e seus status:
 | Interrompida | Amarelo |
 | Cancelada | Cinza |
 
-**Informações** abre tudo sobre a execução: tempo estimado, parâmetros, origem, amostras e, para cada execução do Nextflow, o link do Seqera, o comando, a pasta `work` e a pasta do job. O comando não inclui o token.
+**Informações** abre tudo sobre a execução: tempo estimado, parâmetros, origem, amostras e, para cada execução do Nextflow, o link da Seqera, o comando, a pasta `work` e a pasta do job. O comando não inclui o token.
 
 Com mais de 3 execuções, os detalhes de cada uma ficam recolhidos, exceto as que falharam ou foram interrompidas.
 
-**Retomar (-resume)** aparece em cada execução que falhou, foi interrompida ou cancelada. No modo "uma por vez", cada amostra tem o próprio botão. Uma amostra cancelada enquanto ainda estava na fila não tem cache e roda do início. A retomada roda na mesma pasta do job, o que permite ao Nextflow reaproveitar as etapas prontas de `work`. Ela usa um novo `-name`, gera um novo link do Seqera e aplica as configurações atuais de Conexões. O link, o comando e o erro de cada tentativa anterior continuam disponíveis, e os logs ficam em `nextflow.tentativa-<n>.out`.
+**Retomar (-resume)** aparece em cada execução que falhou, foi interrompida ou cancelada. No modo "uma por vez", cada amostra tem o próprio botão. Uma amostra cancelada enquanto ainda estava na fila não tem cache e roda do início. A retomada roda na mesma pasta do job, o que permite ao Nextflow reaproveitar as etapas prontas de `work`. Ela usa um novo `-name`, gera um novo link da Seqera e aplica as configurações atuais de Conexões. O link, o comando e o erro de cada tentativa anterior continuam disponíveis, e os logs ficam em `nextflow.tentativa-<n>.out`.
 
 Para repetir um comando manualmente, rode-o na pasta do job. Como o `seqera.config` é apagado ao fim de cada job, recrie esse arquivo ou remova o `-c`.
 
@@ -121,7 +121,7 @@ Para repetir um comando manualmente, rode-o na pasta do job. Como o `seqera.conf
 ## Segurança e dados
 
 - Tudo fica em `data/`, com acesso restrito ao usuário do sistema. Inclua essa pasta no seu backup.
-- **O token do Seqera é guardado sem criptografia no banco**, protegido só pela permissão da pasta. Ele nunca é enviado ao navegador. Durante a execução, fica em um `seqera.config` com permissão `0600`, apagado quando o job termina.
+- **O token da Seqera é guardado sem criptografia no banco**, protegido só pela permissão da pasta. Ele nunca é enviado ao navegador. Durante a execução, fica em um `seqera.config` com permissão `0600`, apagado quando o job termina.
 - A plataforma não guarda credenciais do BaseSpace: quem autentica é a CLI `bs`.
 
 ## Testes

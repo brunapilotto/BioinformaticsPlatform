@@ -53,7 +53,7 @@ test('todas ao mesmo tempo: 1 Nextflow, 1 link, samplesheet com todas as amostra
   assert.ok(statSync(outdir).isDirectory(), 'pasta de resultados criada no disparo');
 });
 
-test('argumentos: revisão, perfil, stub e -c do Seqera', async (t) => {
+test('argumentos: revisão, perfil, stub e -c da Seqera', async (t) => {
   const { app, dispatch, finished } = await setup(t);
   await app.api('PUT', '/api/analyses/teste', testAnalysis({ profile: 'docker,test', stub: true }));
   const run = await finished((await dispatch('parallel')).body.id);
@@ -100,7 +100,7 @@ test('sem token: não passa -c, não inventa link e avisa', async (t) => {
   const run = await finished((await dispatch('parallel')).body.id);
   assert.equal(run.state, 'succeeded');
   assert.equal(run.jobs[0].url, null);
-  assert.match(run.jobs[0].message, /token do Seqera não configurado/);
+  assert.match(run.jobs[0].message, /token da Seqera não configurado/);
   assert.ok(!readFileSync(join(app.store.getJob(run.jobs[0].id).dir, 'args.txt'), 'utf8').includes('-c '));
 });
 

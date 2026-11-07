@@ -49,13 +49,13 @@ export function mergeConnections(current, patch) {
     next.maxConcurrent = n;
   }
   if (patch.seqeraApi !== undefined) {
-    const url = asText(patch.seqeraApi, 'URL da API do Seqera');
-    if (!/^https?:\/\/[^\s/]+/i.test(url)) throw new Error('A URL da API do Seqera deve começar com http:// ou https://.');
+    const url = asText(patch.seqeraApi, 'URL da API da Seqera');
+    if (!/^https?:\/\/[^\s/]+/i.test(url)) throw new Error('A URL da API da Seqera deve começar com http:// ou https://.');
     next.seqeraApi = url.replace(/\/+$/, '');
   }
   if (patch.seqeraWorkspaceId !== undefined) {
     next.seqeraWorkspaceId = asText(patch.seqeraWorkspaceId, 'ID do workspace');
-    if (next.seqeraWorkspaceId && !/^\d+$/.test(next.seqeraWorkspaceId)) throw new Error('O ID do workspace do Seqera é numérico.');
+    if (next.seqeraWorkspaceId && !/^\d+$/.test(next.seqeraWorkspaceId)) throw new Error('O ID do workspace da Seqera é numérico.');
   }
   // Campo vazio mantém o token salvo: o valor nunca volta para o navegador, então o campo sempre chega vazio.
   if (typeof patch.seqeraToken === 'string' && patch.seqeraToken.trim()) next.seqeraToken = patch.seqeraToken.trim();

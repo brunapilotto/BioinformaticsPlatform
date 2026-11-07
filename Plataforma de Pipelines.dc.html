@@ -971,9 +971,9 @@ class Component extends DCLogic {
         params:params.map(([key,value])=>({key,value:String(value)})),noParams:params.length===0,
         sourceText:`Origem: ${rec.source.type==='local'?rec.source.path:`BaseSpace · ${rec.source.project_name}`}`,samplesText:`Amostras: ${(rec.sampleNames||[]).join(', ')}`,
         jobsTitle:msgs===1?'Execução':`Execuções (${msgs})`,
-        links:rec.jobs.map(j=>{const prior=j.attempts||[],n=prior.length,note=j.message||(j.url?'':j.state==='queued'?'O link aparece quando esta execução começar.':j.state==='downloading'?'Baixando os arquivos do BaseSpace. O link aparece quando o Nextflow começar.':j.state==='running'?(s.conn.hasSeqeraToken?'Aguardando o link do Seqera…':'Sem link: token do Seqera não configurado em Conexões.'):'');
+        links:rec.jobs.map(j=>{const prior=j.attempts||[],n=prior.length,note=j.message||(j.url?'':j.state==='queued'?'O link aparece quando esta execução começar.':j.state==='downloading'?'Baixando os arquivos do BaseSpace. O link aparece quando o Nextflow começar.':j.state==='running'?(s.conn.hasSeqeraToken?'Aguardando o link do Seqera…':'Sem link: token da Seqera não configurado em Conexões.'):'');
           const own=Object.entries(j.params||{}).filter(([k,val])=>(rec.params||{})[k]!==val).map(([k,val])=>row(k,String(val),`Copiar ${k}`));
-          const rows=[...(j.url?[row('Link do Seqera',j.url,'Copiar link')]:[]),...(j.command?[row(n?'Comando executado (retomada)':'Comando executado',j.command,'Copiar comando')]:[]),
+          const rows=[...(j.url?[row('Link da Seqera',j.url,'Copiar link')]:[]),...(j.command?[row(n?'Comando executado (retomada)':'Comando executado',j.command,'Copiar comando')]:[]),
             ...(j.workDir?[row('Pasta work',j.workDir,'Copiar caminho da pasta work'),row('Pasta do job',j.dir,'Copiar caminho da pasta do job')]:[]),...own];
           return {label:j.label,url:j.url||'',hasUrl:!!j.url,note,hasNote:!!note,stateLabel:STATE_LABEL[j.state]||j.state,stateClass:stateClass(j.state),rows,
             noCommand:!j.command,noCommandText:ACTIVE.includes(j.state)?'O comando aparece quando esta execução começar.':'Comando não registrado: esta execução não chegou a iniciar o Nextflow ou é anterior a este registro.',
@@ -1045,7 +1045,7 @@ class Component extends DCLogic {
     out.connGroups=[
       grp('nextflow','Execução local','ph ph-terminal-window','As pipelines rodam nesta máquina. O limite define quantas execuções do Nextflow acontecem ao mesmo tempo.',
         [cf('nextflowPath','Caminho do Nextflow','text','nextflow'),cf('javaHome','JAVA_HOME (opcional)','text','/caminho/para/java'),cf('workDir','Pasta de trabalho (opcional)','text','data/runs'),cf('maxConcurrent','Execuções simultâneas','number')],'Testar Nextflow'),
-      grp('seqera','Seqera Platform','ph ph-chart-line-up','Com um token salvo, cada execução recebe a configuração do Seqera por -c e devolve o link de acompanhamento.',
+      grp('seqera','Seqera Platform','ph ph-chart-line-up','Com um token salvo, cada execução recebe a configuração da Seqera por -c e devolve o link de acompanhamento.',
         [cf('seqeraApi','URL da API','text','https://api.cloud.seqera.io'),cf('seqeraWorkspaceId','ID do workspace (opcional)','text','123456789'),
           {label:'Token de acesso',type:'password',placeholder:c.hasSeqeraToken?'Token salvo. Digite para substituir':'Cole o token aqui',value:s.seqeraToken,onChange:e=>this.setState({seqeraToken:e.target.value})}],'Testar conexão',
         [{label:'Salvar token',run:()=>this.saveToken(),disabled:!s.seqeraToken.trim()},...(c.hasSeqeraToken?[{label:'Remover token',run:()=>this.clearToken(),disabled:false}]:[])]),

@@ -160,12 +160,12 @@ export class Runner {
     const args = this.nextflowArgs(job, useSeqera);
     this.store.updateJob(job.id, { command: shellJoin([conn.nextflowPath, ...args]) });
     const env = { ...process.env, NXF_ANSI_LOG: 'false' };
-    // Essas variáveis ativam o modo agente do Nextflow, que muda a saída da qual o link do Seqera é lido.
+    // Essas variáveis ativam o modo agente do Nextflow, que muda a saída da qual o link da Seqera é lido.
     delete env.NXF_AGENT_MODE;
     delete env.CLAUDECODE;
     if (conn.javaHome) env.JAVA_HOME = conn.javaHome;
 
-    // Cada tentativa tem seu log. Se fosse o mesmo arquivo, o link antigo do Seqera seria lido de novo.
+    // Cada tentativa tem seu log. Se fosse o mesmo arquivo, o link antigo da Seqera seria lido de novo.
     const logPath = join(dir, 'nextflow.out');
     if (job.attempts.length && existsSync(logPath)) renameSync(logPath, join(dir, `nextflow.tentativa-${job.attempts.length}.out`));
     const log = openSync(logPath, 'a');
@@ -265,8 +265,8 @@ export class Runner {
   noLinkNote(jobId) {
     if (this.store.getJob(jobId).url) return null;
     return this.store.getConnections().seqeraToken
-      ? 'O Nextflow não informou um link do Seqera. Confira o token e o workspace em Conexões.'
-      : 'Sem link: token do Seqera não configurado em Conexões.';
+      ? 'O Nextflow não informou um link da Seqera. Confira o token e o workspace em Conexões.'
+      : 'Sem link: token da Seqera não configurado em Conexões.';
   }
 
   finish(jobId, state, message) {

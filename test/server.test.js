@@ -108,7 +108,7 @@ test('segurança: arquivos estáticos só da lista permitida', async (t) => {
   }
 });
 
-test('segurança: token do Seqera nunca volta para o navegador', async (t) => {
+test('segurança: token da Seqera nunca volta para o navegador', async (t) => {
   const { api, raw, store } = await startApp(t);
   const saved = await api('PUT', '/api/settings', { seqeraToken: 'tok-muito-secreto' });
   assert.equal(saved.body.hasSeqeraToken, true);

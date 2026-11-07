@@ -114,7 +114,7 @@ test('as análises iniciais têm schema válido', () => {
   for (const seed of SEED_ANALYSES) assert.ok(normalizeAnalysis(seed), seed.id);
 });
 
-test('config do Seqera escapa os valores', () => {
+test('config da Seqera escapa os valores', () => {
   const config = seqeraConfig({ seqeraToken: "to'k\\en", seqeraApi: 'https://api.cloud.seqera.io', seqeraWorkspaceId: '123' });
   assert.match(config, /accessToken = 'to\\'k\\\\en'/);
   assert.match(config, /endpoint = 'https:\/\/api.cloud.seqera.io'/);
