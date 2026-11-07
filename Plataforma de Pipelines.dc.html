@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plataforma de Pipelines</title>
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/nocturne-92db5f2a-f624-4dad-8993-b57e381e1606/styles.css">
+<script src="_ds/nocturne-92db5f2a-f624-4dad-8993-b57e381e1606/_ds_bundle.js"></script>
+<link rel="stylesheet" href="vendor/phosphor/style.css">
+<style>
+body{margin:0;background:var(--color-bg)}
+a{color:var(--color-accent)}
+a:hover{color:var(--color-accent-300)}
+@keyframes pl-spin{to{transform:rotate(360deg)}}
+.tag-st-success{background:color-mix(in srgb,#4fb573 24%,transparent);color:#a3e4bb}
+.tag-st-running{background:color-mix(in srgb,#e8964a 24%,transparent);color:#f7c797}
+.tag-st-queued{background:color-mix(in srgb,#5d9be0 24%,transparent);color:#b3d3f5}
+.tag-st-failed{background:color-mix(in srgb,#e0566a 26%,transparent);color:#f7b3bc}
+.tag-st-interrupted{background:color-mix(in srgb,#d9b93f 24%,transparent);color:#efe09c}
+</style>
+</helmet>
+<div style="--color-accent:{{ acc.a }};--color-accent-300:{{ acc.a300 }};--color-accent-400:{{ acc.a400 }};--color-accent-700:{{ acc.a700 }};--color-accent-800:{{ acc.a800 }};--color-accent-900:{{ acc.a900 }};min-height:100vh;display:flex;flex-direction:column;background:radial-gradient(1100px 520px at 0% -8%, var(--color-accent-900), transparent 70%), var(--color-bg);color:var(--color-text);font-family:var(--font-body)">
+
+<header style="width:100%;max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:20px;padding:16px 24px;flex-wrap:wrap">
+  <a href="#" onClick="{{ goCatalog }}" style="display:flex;align-items:center;gap:10px;margin-right:auto;color:var(--color-text);text-decoration:none;font-family:var(--font-heading);font-weight:500;font-size:17px">
+    <sc-if value="{{ hasLogo }}" hint-placeholder-val="{{ false }}"><span role="img" aria-label="Logo" style="height:28px;width:{{ logoW28 }};background:{{ logoBg }}"></span></sc-if>
+    <sc-if value="{{ noLogo }}" hint-placeholder-val="{{ true }}"><span style="width:28px;height:28px;border:1px solid var(--color-accent);border-radius:var(--radius-md);display:grid;place-items:center;font-size:13px;color:var(--color-accent)">{{ brandInitial }}</span></sc-if>
+    <span>{{ brand.name }}</span>
+  </a>
+  <nav class="nav" style="padding:0;gap:20px">
+    <a href="#" aria-current="{{ navCatalog }}" onClick="{{ goCatalog }}" style="display:flex;align-items:center;gap:6px"><i class="ph ph-squares-four"></i>Análises</a>
+    <a href="#" aria-current="{{ navHistory }}" onClick="{{ goHistory }}" style="display:flex;align-items:center;gap:6px"><i class="ph ph-clock-counter-clockwise"></i>Histórico</a>
+    <a href="#" aria-current="{{ navAdmin }}" onClick="{{ goAdmin }}" style="display:flex;align-items:center;gap:6px"><i class="ph ph-gear-six"></i>Admin</a>
+  </nav>
+</header>
+
+<sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+<main style="width:100%;max-width:1200px;margin:0 auto;padding:40px 24px 72px;box-sizing:border-box">
+  <div style="display:flex;align-items:center;gap:10px;font-size:14px" class="text-muted">{{ spinner }}Carregando…</div>
+</main>
+</sc-if>
+
+<sc-if value="{{ hasLoadError }}" hint-placeholder-val="{{ false }}">
+<main style="width:100%;max-width:1200px;margin:0 auto;padding:40px 24px 72px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px;align-items:flex-start">
+  <h2 style="margin:0">Não foi possível carregar a plataforma</h2>
+  <p class="text-muted" style="margin:0">{{ loadError }}</p>
+  <button class="btn btn-primary" onClick="{{ reload }}"><i class="ph ph-arrow-clockwise"></i>Tentar novamente</button>
+</main>
+</sc-if>
+
+<sc-if value="{{ isCatalog }}" hint-placeholder-val="{{ true }}">
+<main data-screen-label="Catálogo" style="width:100%;max-width:1200px;margin:0 auto;padding:40px 24px 72px">
+  <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:28px">
+    <div style="flex:1;min-width:260px">
+      <h6 class="text-muted" style="margin-bottom:10px">Catálogo</h6>
+      <h2>Análises disponíveis</h2>
+      <p class="text-muted" style="margin:0">Escolha uma pipeline para selecionar as amostras e disparar a execução.</p>
+    </div>
+    <div style="position:relative;width:100%;max-width:280px">
+      <i class="ph ph-magnifying-glass" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6"></i>
+      <input class="input" placeholder="Buscar análise" value="{{ search }}" onChange="{{ onSearch }}" style="padding-left:32px">
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+    <sc-for list="{{ catalog }}" as="a" hint-placeholder-count="4">
+      <button onClick="{{ a.open }}" class="card" style="text-align:left;border:0;cursor:pointer;color:inherit;font:inherit;padding:20px;gap:10px;min-height:190px;box-shadow:var(--shadow-sm)" style-hover="box-shadow:var(--shadow-md)">
+        <div class="card-kicker">{{ a.category }}</div>
+        <div class="card-title">{{ a.name }}</div>
+        <p class="card-body">{{ a.description }}</p>
+        <div class="card-meta" style="gap:14px;flex-wrap:wrap">
+          <span style="display:flex;align-items:center;gap:5px"><i class="ph ph-git-branch"></i>{{ a.pipeline }} {{ a.revision }}</span>
+          <span style="display:flex;align-items:center;gap:5px;margin-left:auto"><i class="ph ph-timer"></i>{{ a.perSample }} por amostra</span>
+        </div>
+      </button>
+    </sc-for>
+  </div>
+  <sc-if value="{{ catalogEmpty }}" hint-placeholder-val="{{ false }}">
+    <p class="text-muted" style="margin-top:24px">Nenhuma análise encontrada.</p>
+  </sc-if>
+</main>
+</sc-if>
+
+<sc-if value="{{ isRun }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Disparo" style="width:100%;max-width:1200px;margin:0 auto;padding:28px 24px 72px">
+  <a href="#" onClick="{{ goCatalog }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;text-decoration:none;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><i class="ph ph-arrow-left"></i>Análises</a>
+  <div style="margin:18px 0 26px">
+    <div class="card-kicker" style="margin-bottom:8px">{{ ra.category }}</div>
+    <h2>{{ ra.name }}</h2>
+    <div class="card-meta" style="font-size:12px;gap:14px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:5px"><i class="ph ph-git-branch"></i>{{ ra.pipeline }} {{ ra.revision }}</span>
+      <span style="display:flex;align-items:center;gap:5px"><i class="ph ph-timer"></i>{{ ra.perSample }} por amostra</span>
+      <span style="display:flex;align-items:center;gap:5px"><i class="ph ph-stack"></i>até {{ ra.slots }} em paralelo</span>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:28px">
+    <div style="display:flex;align-items:center;gap:8px;color:{{ st.c1 }}"><span style="width:22px;height:22px;border-radius:50%;border:1px solid currentColor;display:grid;place-items:center;font-size:11px">1</span><span style="font-size:13px">Amostras</span></div>
+    <div style="width:40px;height:1px;background:var(--color-divider)"></div>
+    <div style="display:flex;align-items:center;gap:8px;color:{{ st.c2 }}"><span style="width:22px;height:22px;border-radius:50%;border:1px solid currentColor;display:grid;place-items:center;font-size:11px">2</span><span style="font-size:13px">Parâmetros</span></div>
+    <div style="width:40px;height:1px;background:var(--color-divider)"></div>
+    <div style="display:flex;align-items:center;gap:8px;color:{{ st.c3 }}"><span style="width:22px;height:22px;border-radius:50%;border:1px solid currentColor;display:grid;place-items:center;font-size:11px">3</span><span style="font-size:13px">Revisão e disparo</span></div>
+  </div>
+
+  <sc-if value="{{ step1 }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <sc-if value="{{ srcChoice }}" hint-placeholder-val="{{ true }}">
+    <div class="field">
+      <label>Origem dos dados</label>
+      <div class="seg">
+        <label class="seg-opt"><input type="radio" name="src" checked="{{ srcLocal }}" onChange="{{ setSrcLocal }}"><i class="ph ph-folder-simple"></i>Pasta local</label>
+        <label class="seg-opt"><input type="radio" name="src" checked="{{ srcBs }}" onChange="{{ setSrcBs }}"><i class="ph ph-cloud"></i>BaseSpace</label>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ srcLocal }}" hint-placeholder-val="{{ true }}">
+    <div class="field" style="max-width:760px">
+      <label>Pasta da amostra</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="position:relative;flex:1;min-width:240px">
+          <i class="ph ph-folder-simple" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6"></i>
+          <input class="input" value="{{ run.path }}" onChange="{{ onPath }}" placeholder="/data/sequenciamento/…" style="padding-left:32px;font-family:ui-monospace,Menlo,monospace;font-size:13px">
+        </div>
+        <button class="btn btn-secondary" onClick="{{ browseSource }}" style="min-height:36px"><i class="ph ph-folder-open"></i>Selecionar pasta</button>
+        <button class="btn btn-primary" onClick="{{ scan }}" disabled="{{ scanDisabled }}" style="min-height:36px"><i class="ph ph-magnifying-glass"></i>Identificar FASTQs</button>
+      </div>
+      <sc-if value="{{ hasRecent }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center">
+        <span class="text-muted" style="font-size:12px;margin-right:4px">Recentes</span>
+        <sc-for list="{{ recent }}" as="p" hint-placeholder-count="3">
+          <button class="tag tag-neutral" onClick="{{ p.pick }}" title="{{ p.path }}" style="border:0;cursor:pointer;font-family:ui-monospace,Menlo,monospace" style-hover="background:var(--color-neutral-700)">{{ p.label }}</button>
+        </sc-for>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ srcBs }}" hint-placeholder-val="{{ false }}">
+    <div class="field" style="max-width:760px">
+      <label>Nome do projeto no BaseSpace</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="position:relative;flex:1;min-width:240px">
+          <i class="ph ph-cloud" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6"></i>
+          <input class="input" value="{{ run.bsQuery }}" onChange="{{ onBsQuery }}" placeholder="NovaSeq_RUN0412" style="padding-left:32px;font-family:ui-monospace,Menlo,monospace;font-size:13px">
+        </div>
+        <button class="btn btn-primary" onClick="{{ scan }}" disabled="{{ scanDisabled }}" style="min-height:36px"><i class="ph ph-magnifying-glass"></i>Identificar FASTQs</button>
+      </div>
+      <div class="text-muted" style="font-size:12px;margin-top:6px">A busca fica restrita aos projetos com esse nome.</div>
+      <sc-if value="{{ hasBsMatches }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:5px;margin-top:12px">
+        <label style="font-size:12px;color:color-mix(in srgb,var(--color-text) 70%,transparent)">{{ bsMatchesText }}</label>
+        <select class="input" value="{{ run.bsProject }}" onChange="{{ onBsProject }}">
+          <option value="">Selecione o projeto</option>
+          <sc-for list="{{ bsMatchOptions }}" as="p" hint-placeholder-count="2"><option value="{{ p.id }}">{{ p.name }}</option></sc-for>
+        </select>
+      </div>
+      </sc-if>
+      <sc-if value="{{ bsBlocked }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:13px">
+        <span style="display:flex;align-items:center;gap:6px"><i class="ph ph-warning" style="color:var(--color-accent)"></i>A CLI do BaseSpace ainda não foi verificada.</span>
+        <button class="btn btn-secondary" onClick="{{ goConnections }}">Abrir Conexões</button>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <div class="text-muted" style="font-size:12px;display:flex;align-items:center;gap:6px;margin-top:-10px"><i class="ph ph-info"></i>Padrão de arquivos: <code style="font-family:ui-monospace,Menlo,monospace">{{ pattern }}</code></div>
+
+    <sc-if value="{{ run.scanning }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:10px;font-size:14px" class="text-muted">{{ spinner }}Procurando arquivos FASTQ em {{ scanTarget }}…</div>
+    </sc-if>
+
+    <sc-if value="{{ hasScanError }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:flex-start;gap:8px;font-size:14px;overflow-wrap:anywhere"><i class="ph ph-warning" style="color:var(--color-accent);margin-top:2px"></i><span>{{ run.scanError }}</span></div>
+    </sc-if>
+
+    <sc-if value="{{ noSamples }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:flex-start;gap:8px;font-size:14px"><i class="ph ph-warning" style="color:var(--color-accent);margin-top:2px"></i><span>Nenhum arquivo FASTQ com o padrão {{ pattern }} foi encontrado.</span></div>
+    </sc-if>
+
+    <sc-for list="{{ scanWarnings }}" as="w" hint-placeholder-count="0">
+      <div class="text-muted" style="font-size:12px;display:flex;align-items:center;gap:6px;overflow-wrap:anywhere"><i class="ph ph-info"></i>{{ w.text }}</div>
+    </sc-for>
+
+    <sc-if value="{{ showSamples }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <h4 style="margin:0">{{ foundText }}</h4>
+        <span class="text-muted" style="font-size:13px">{{ selectedText }}</span>
+        <span class="text-muted" style="font-size:12px;margin-left:auto">Confirme as amostras antes de continuar</span>
+      </div>
+      <div style="overflow:auto;max-height:420px;border-radius:var(--radius-md);background:color-mix(in srgb,var(--color-surface) 60%,transparent);box-shadow:var(--shadow-sm)">
+        <table class="table">
+          <thead><tr>
+            <th style="width:40px;padding-left:14px"><input type="checkbox" checked="{{ allSelected }}" onChange="{{ toggleAll }}" style="width:15px;height:15px;accent-color:var(--color-accent);margin:0"></th>
+            <th>Amostra</th><th>R1</th><th>R2</th><th>Lanes</th><th>Tamanho</th><th></th>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{ sampleRows }}" as="s" hint-placeholder-count="5">
+            <tr onClick="{{ s.toggle }}" style="cursor:{{ s.cursor }};opacity:{{ s.opacity }}">
+              <td style="padding-left:14px"><input type="checkbox" checked="{{ s.selected }}" disabled="{{ s.invalid }}" readOnly style="width:15px;height:15px;accent-color:var(--color-accent);margin:0;pointer-events:none"></td>
+              <td style="white-space:nowrap">{{ s.name }}</td>
+              <td style="font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:nowrap" class="text-muted">{{ s.r1 }}</td>
+              <td style="font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:nowrap" class="text-muted">{{ s.r2 }}</td>
+              <td style="white-space:nowrap;font-size:13px">{{ s.lanes }}</td>
+              <td style="white-space:nowrap;font-size:13px">{{ s.size }}</td>
+              <td><sc-if value="{{ s.invalid }}" hint-placeholder-val="{{ false }}"><span class="tag tag-neutral" style="white-space:nowrap">{{ s.reason }}</span></sc-if></td>
+            </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ step2 }}" hint-placeholder-val="{{ false }}">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px 24px;max-width:960px">
+    <sc-for list="{{ paramFields }}" as="f" hint-placeholder-count="4">
+    <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
+      <label style="font-size:12px;color:color-mix(in srgb,var(--color-text) 70%,transparent)">{{ f.label }}{{ f.reqMark }}</label>
+      <sc-if value="{{ f.isSelect }}" hint-placeholder-val="{{ false }}"><select class="input" value="{{ f.value }}" onChange="{{ f.onChange }}"><sc-for list="{{ f.options }}" as="o" hint-placeholder-count="0"><option value="{{ o.value }}">{{ o.label }}</option></sc-for></select></sc-if>
+      <sc-if value="{{ f.isInput }}" hint-placeholder-val="{{ true }}"><input class="input" type="{{ f.inputType }}" value="{{ f.value }}" placeholder="{{ f.placeholder }}" onChange="{{ f.onChange }}"></sc-if>
+      <sc-if value="{{ f.isPath }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:6px"><div style="position:relative;flex:1;min-width:0"><i class="{{ f.pathIcon }}" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6"></i><input class="input" value="{{ f.value }}" placeholder="{{ f.placeholder }}" onChange="{{ f.onChange }}" style="padding-left:32px;font-family:ui-monospace,Menlo,monospace;font-size:13px"></div><sc-if value="{{ f.canBrowse }}" hint-placeholder-val="{{ false }}"><button class="btn btn-secondary btn-icon" onClick="{{ f.browse }}" title="Selecionar pasta" aria-label="Selecionar pasta" style="flex:none;width:36px;height:36px"><i class="ph ph-folder-open"></i></button></sc-if></div></sc-if>
+      <sc-if value="{{ f.isBool }}" hint-placeholder-val="{{ false }}"><label style="display:flex;align-items:center;gap:8px;min-height:36px;cursor:pointer;font-size:14px"><input type="checkbox" checked="{{ f.checked }}" onChange="{{ f.onToggle }}" style="width:16px;height:16px;accent-color:var(--color-accent);margin:0">{{ f.boolText }}</label></sc-if>
+      <sc-if value="{{ f.hasHelp }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="font-size:12px">{{ f.help }}</div></sc-if>
+    </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ step3 }}" hint-placeholder-val="{{ false }}">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:32px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <h5 style="margin-bottom:10px">Resumo</h5>
+      <sc-for list="{{ summary }}" as="r" hint-placeholder-count="5">
+      <div style="display:grid;grid-template-columns:minmax(120px,38%) 1fr;gap:12px;padding:7px 0;font-size:14px;background:linear-gradient(to right,transparent,color-mix(in srgb,var(--color-text) 8%,transparent) 48px,color-mix(in srgb,var(--color-text) 8%,transparent) calc(100% - 48px),transparent) no-repeat bottom / 100% 1px">
+        <span class="text-muted">{{ r.label }}</span>
+        <span style="overflow-wrap:anywhere">{{ r.value }}</span>
+      </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <h5 style="margin-bottom:0">Como executar as amostras?</h5>
+      <button onClick="{{ setModeSeq }}" class="card" style="border:0;text-align:left;cursor:pointer;color:inherit;font:inherit;padding:16px;gap:6px;box-shadow:{{ mode.seqShadow }}">
+        <div style="display:flex;align-items:center;gap:10px"><i class="ph ph-queue" style="font-size:18px;color:var(--color-accent)"></i><span class="card-title" style="font-size:15px">Uma amostra por vez</span><span style="margin-left:auto;font-size:15px">{{ mode.seqEta }}</span></div>
+        <div class="card-meta" style="font-size:12px">{{ mode.seqText }}</div>
+      </button>
+      <button onClick="{{ setModePar }}" class="card" style="border:0;text-align:left;cursor:pointer;color:inherit;font:inherit;padding:16px;gap:6px;box-shadow:{{ mode.parShadow }}">
+        <div style="display:flex;align-items:center;gap:10px"><i class="ph ph-stack" style="font-size:18px;color:var(--color-accent)"></i><span class="card-title" style="font-size:15px">Todas ao mesmo tempo</span><span style="margin-left:auto;font-size:15px">{{ mode.parEta }}</span></div>
+        <div class="card-meta" style="font-size:12px">{{ mode.parText }}</div>
+      </button>
+      <div class="text-muted" style="font-size:12px;display:flex;gap:6px;align-items:center"><i class="ph ph-timer"></i>Estimativa com base em {{ ra.perSample }} por amostra, definido pelo administrador.</div>
+    </div>
+  </div>
+  <sc-if value="{{ allowPayload }}" hint-placeholder-val="{{ true }}">
+  <div style="margin-top:32px;display:flex;flex-direction:column;gap:12px">
+    <button class="btn btn-ghost" onClick="{{ togglePayload }}" style="align-self:flex-start"><i class="{{ payloadIcon }}"></i>JSON dos jobs ({{ msgCount }})</button>
+    <sc-if value="{{ run.showPayload }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px" class="text-muted">
+        <span>{{ msgLabel }}</span>
+        <span style="margin-left:auto"></span>
+        <button class="btn btn-secondary btn-icon" onClick="{{ msgPrev }}" disabled="{{ msgPrevDisabled }}" style="width:28px;height:28px"><i class="ph ph-caret-left"></i></button>
+        <button class="btn btn-secondary btn-icon" onClick="{{ msgNext }}" disabled="{{ msgNextDisabled }}" style="width:28px;height:28px"><i class="ph ph-caret-right"></i></button>
+      </div>
+      <pre style="margin:0;padding:14px 16px;background:var(--color-neutral-900);border-radius:var(--radius-md);font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.55;overflow:auto;max-height:380px;color:var(--color-neutral-300)">{{ msgJson }}</pre>
+    </div>
+    </sc-if>
+  </div>
+  </sc-if>
+  </sc-if>
+
+  <div style="display:flex;align-items:center;gap:10px;margin-top:36px;flex-wrap:wrap">
+    <button class="btn btn-secondary" onClick="{{ runBack }}">{{ backLabel }}</button>
+    <sc-if value="{{ notLast }}" hint-placeholder-val="{{ true }}"><button class="btn btn-primary" onClick="{{ runNext }}" disabled="{{ nextDisabled }}">Continuar<i class="ph ph-arrow-right"></i></button></sc-if>
+    <sc-if value="{{ step3 }}" hint-placeholder-val="{{ false }}"><button class="btn btn-primary" onClick="{{ openConfirm }}" disabled="{{ fireDisabled }}"><i class="ph ph-rocket-launch"></i>Disparar análise</button></sc-if>
+    <span class="text-muted" style="font-size:12px">{{ blockHint }}</span>
+  </div>
+
+  <sc-if value="{{ run.confirm }}" hint-placeholder-val="{{ false }}">
+  <div class="dialog-backdrop" style="z-index:20">
+    <div class="dialog" role="dialog" aria-modal="true">
+      <div class="dialog-title">Confirmar disparo</div>
+      <div class="dialog-body" style="display:flex;flex-direction:column;gap:8px">
+        <span>{{ confirmText }}</span>
+        <span class="text-muted" style="font-size:13px">{{ confirmSub }}</span>
+        <sc-if value="{{ hasSendError }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;display:flex;gap:6px;overflow-wrap:anywhere"><i class="ph ph-warning" style="color:var(--color-accent);margin-top:2px"></i>{{ run.sendError }}</span></sc-if>
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-secondary" onClick="{{ closeConfirm }}" disabled="{{ run.sending }}">Cancelar</button>
+        <button class="btn btn-primary" onClick="{{ dispatch }}" disabled="{{ run.sending }}">{{ sendLabel }}</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+  <div class="dialog-backdrop" style="z-index:30">
+    <div class="dialog" role="dialog" aria-modal="true" style="width:min(640px,calc(100vw - 32px));max-width:none;box-sizing:border-box">
+      <div class="dialog-title">Selecionar pasta</div>
+      <div class="dialog-body" style="display:flex;flex-direction:column;gap:10px;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <button class="btn btn-secondary btn-icon" onClick="{{ pickerUp }}" disabled="{{ pickerAtRoot }}" title="Pasta acima" aria-label="Pasta acima" style="flex:none;width:32px;height:32px"><i class="ph ph-arrow-up"></i></button>
+          <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere;min-width:0">{{ picker.path }}</code>
+        </div>
+        <sc-if value="{{ pickerHasError }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;overflow-wrap:anywhere">{{ picker.error }}</div></sc-if>
+        <div style="height:300px;overflow:auto;display:flex;flex-direction:column;border-radius:var(--radius-md);box-shadow:var(--shadow-sm)">
+          <sc-for list="{{ pickerDirs }}" as="d" hint-placeholder-count="5">
+            <button onClick="{{ d.open }}" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;background:transparent;color:inherit;font:inherit;font-size:13px;text-align:left;cursor:pointer;flex:none" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)"><i class="ph ph-folder-simple" style="flex:none"></i><span style="overflow-wrap:anywhere">{{ d.name }}</span></button>
+          </sc-for>
+          <sc-if value="{{ pickerEmpty }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="padding:12px;font-size:13px">Nenhuma subpasta.</div></sc-if>
+        </div>
+        <div class="text-muted" style="font-size:12px;min-height:16px">{{ pickerInfo }}</div>
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-secondary" onClick="{{ pickerClose }}">Cancelar</button>
+        <button class="btn btn-primary" onClick="{{ pickerChoose }}" disabled="{{ pickerChooseDisabled }}">Selecionar esta pasta</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+</main>
+</sc-if>
+
+<sc-if value="{{ isResult }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Informações" style="width:100%;max-width:1200px;margin:0 auto;padding:48px 24px 72px;box-sizing:border-box">
+  <div style="max-width:960px;display:flex;flex-direction:column;gap:28px">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;color:var(--color-accent);margin-bottom:12px"><i class="{{ res.kickerIcon }}" style="font-size:20px"></i><h6 style="margin:0">{{ res.kicker }}</h6></div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+        <h2 style="margin:0">{{ res.analysisName }}</h2>
+        <span class="{{ res.stateClass }}">{{ res.stateLabel }}</span>
+      </div>
+      <p class="text-muted" style="margin:0">{{ res.line }}</p>
+      <sc-if value="{{ res.hasAhead }}" hint-placeholder-val="{{ false }}"><p class="text-muted" style="margin:6px 0 0;font-size:13px;display:flex;align-items:center;gap:6px"><i class="ph ph-queue"></i>{{ res.aheadText }}</p></sc-if>
+      <sc-if value="{{ pollFailed }}" hint-placeholder-val="{{ false }}"><p style="margin:6px 0 0;font-size:13px;display:flex;align-items:center;gap:6px"><i class="ph ph-warning" style="color:var(--color-accent)"></i>Sem resposta do servidor. O status pode estar desatualizado.</p></sc-if>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+      <div class="card" style="padding:18px;box-shadow:var(--shadow-sm)">
+        <div class="card-kicker">Tempo estimado</div>
+        <div style="font-size:32px;font-family:var(--font-heading);font-weight:500;letter-spacing:-0.02em">{{ res.eta }}</div>
+        <div class="card-meta">{{ res.etaBasis }}</div>
+      </div>
+      <div class="card" style="padding:18px;box-shadow:var(--shadow-sm)">
+        <div class="card-kicker">{{ res.endLabel }}</div>
+        <div style="font-size:32px;font-family:var(--font-heading);font-weight:500;letter-spacing:-0.02em">{{ res.end }}</div>
+        <div class="card-meta">{{ res.endDate }}</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <h5 style="margin:0">Parâmetros utilizados</h5>
+      <div style="display:grid;grid-template-columns:minmax(120px,max-content) 1fr;gap:4px 16px;font-size:13px">
+        <sc-for list="{{ res.params }}" as="p" hint-placeholder-count="3">
+          <span class="text-muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ p.key }}</span>
+          <span style="overflow-wrap:anywhere;min-width:0">{{ p.value }}</span>
+        </sc-for>
+      </div>
+      <sc-if value="{{ res.noParams }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="font-size:13px">Nenhum parâmetro informado.</div></sc-if>
+      <div class="text-muted" style="font-size:12px;overflow-wrap:anywhere">{{ res.sourceText }}</div>
+      <div class="text-muted" style="font-size:12px;overflow-wrap:anywhere">{{ res.samplesText }}</div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <h5 style="margin:0">{{ res.jobsTitle }}</h5>
+      <sc-if value="{{ hasResumeError }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:8px;font-size:13px;overflow-wrap:anywhere"><i class="ph ph-warning" style="color:var(--color-accent);margin-top:2px"></i><span>{{ resumeError }}</span></div></sc-if>
+      <sc-for list="{{ res.links }}" as="l" hint-placeholder-count="1">
+      <div style="display:flex;flex-direction:column;gap:10px;padding:14px 0 18px;background:linear-gradient(to right,transparent,color-mix(in srgb,var(--color-text) 8%,transparent) 48px,color-mix(in srgb,var(--color-text) 8%,transparent) calc(100% - 48px),transparent) no-repeat bottom / 100% 1px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:14px">{{ l.label }}</span>
+          <span class="{{ l.stateClass }}">{{ l.stateLabel }}</span>
+          <sc-if value="{{ l.hasAttemptText }}" hint-placeholder-val="{{ false }}"><span class="text-muted" style="font-size:12px">{{ l.attemptText }}</span></sc-if>
+          <span style="margin-left:auto"></span>
+          <sc-if value="{{ l.canResume }}" hint-placeholder-val="{{ false }}"><button class="btn btn-secondary" onClick="{{ l.resume }}" disabled="{{ l.resuming }}" title="Executa de novo com -resume, reaproveitando as etapas já concluídas"><i class="ph ph-arrow-clockwise"></i>Retomar (-resume)</button></sc-if>
+          <sc-if value="{{ l.hasUrl }}" hint-placeholder-val="{{ true }}"><a class="btn btn-primary" href="{{ l.url }}" target="_blank" rel="noopener">Abrir no Seqera<i class="ph ph-arrow-square-out"></i></a></sc-if>
+        </div>
+        <sc-if value="{{ l.hasNote }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto">{{ l.note }}</div></sc-if>
+        <details open="{{ l.openDefault }}" style="font-size:13px">
+          <summary style="cursor:pointer" class="text-muted">Comando, pastas e link</summary>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+        <sc-for list="{{ l.rows }}" as="r" hint-placeholder-count="2">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div class="card-kicker">{{ r.label }}</div>
+            <div style="display:flex;gap:8px;align-items:flex-start">
+              <pre style="flex:1;min-width:0;margin:0;padding:8px 12px;background:var(--color-neutral-900);border-radius:var(--radius-md);font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--color-neutral-300)">{{ r.value }}</pre>
+              <button class="btn btn-secondary btn-icon" onClick="{{ r.copy }}" title="{{ r.copyTitle }}" aria-label="{{ r.copyTitle }}" style="flex:none;width:32px;height:32px"><i class="{{ r.copyIcon }}"></i></button>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ l.noCommand }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="font-size:12px">{{ l.noCommandText }}</div></sc-if>
+          </div>
+        </details>
+        <sc-if value="{{ l.hasAttempts }}" hint-placeholder-val="{{ false }}">
+        <details style="font-size:13px">
+          <summary style="cursor:pointer" class="text-muted">{{ l.attemptsTitle }}</summary>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">
+            <sc-for list="{{ l.attempts }}" as="t" hint-placeholder-count="1">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>{{ t.title }}</span><span class="{{ t.stateClass }}">{{ t.stateLabel }}</span></div>
+              <sc-if value="{{ t.hasUrl }}" hint-placeholder-val="{{ false }}"><a href="{{ t.url }}" target="_blank" rel="noopener" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">{{ t.url }}</a></sc-if>
+              <sc-if value="{{ t.hasCommand }}" hint-placeholder-val="{{ false }}"><code class="text-muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">{{ t.command }}</code></sc-if>
+              <sc-if value="{{ t.hasMessage }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto">{{ t.message }}</div></sc-if>
+            </div>
+            </sc-for>
+          </div>
+        </details>
+        </sc-if>
+      </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-secondary" onClick="{{ goHistory }}"><i class="ph ph-clock-counter-clockwise"></i>Histórico</button>
+      <button class="btn btn-secondary" onClick="{{ goCatalog }}"><i class="ph ph-arrow-left"></i>Voltar ao catálogo</button>
+      <sc-if value="{{ res.canCancel }}" hint-placeholder-val="{{ false }}"><button class="btn btn-ghost" onClick="{{ res.askCancel }}"><i class="ph ph-stop-circle"></i>Cancelar execução</button></sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{ cancelOpen }}" hint-placeholder-val="{{ false }}">
+  <div class="dialog-backdrop" style="z-index:20">
+    <div class="dialog" role="dialog" aria-modal="true">
+      <div class="dialog-title">Cancelar execução?</div>
+      <div class="dialog-body" style="display:flex;flex-direction:column;gap:8px">
+        <span>O Nextflow em andamento será encerrado e as amostras na fila não serão executadas.</span>
+        <sc-if value="{{ hasCancelError }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;overflow-wrap:anywhere">{{ cancelError }}</span></sc-if>
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-secondary" onClick="{{ closeCancel }}">Voltar</button>
+        <button class="btn btn-primary" onClick="{{ confirmCancel }}">Cancelar execução</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+</main>
+</sc-if>
+
+<sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Histórico" style="width:100%;max-width:1200px;margin:0 auto;padding:40px 24px 72px;box-sizing:border-box">
+  <h6 class="text-muted" style="margin-bottom:10px">Execuções</h6>
+  <h2>Histórico</h2>
+  <p class="text-muted" style="margin:0 0 24px">Disparos recentes e seus status. Abra uma execução para ver parâmetros, comandos e links.</p>
+  <sc-if value="{{ pollFailed }}" hint-placeholder-val="{{ false }}"><p style="margin:0 0 16px;font-size:13px;display:flex;align-items:center;gap:6px"><i class="ph ph-warning" style="color:var(--color-accent)"></i>Sem resposta do servidor. O status pode estar desatualizado.</p></sc-if>
+  <sc-if value="{{ historyEmpty }}" hint-placeholder-val="{{ false }}"><p class="text-muted">Nenhuma análise foi disparada ainda.</p></sc-if>
+  <sc-if value="{{ hasHistory }}" hint-placeholder-val="{{ true }}">
+  <div style="overflow-x:auto">
+    <table class="table" style="min-width:720px">
+      <thead><tr><th>Data</th><th>Análise</th><th>Amostras</th><th>Modo</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <sc-for list="{{ historyRows }}" as="h" hint-placeholder-count="3">
+        <tr>
+          <td style="white-space:nowrap;font-size:13px">{{ h.when }}</td>
+          <td>{{ h.analysisName }}</td>
+          <td style="font-size:13px">{{ h.n }}</td>
+          <td style="font-size:13px;white-space:nowrap">{{ h.modeLabel }}</td>
+          <td><span class="{{ h.stateClass }}" style="white-space:nowrap">{{ h.stateLabel }}</span></td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn btn-ghost" onClick="{{ h.open }}">Informações</button>
+            <button class="btn btn-ghost btn-icon" onClick="{{ h.askDelete }}" disabled="{{ h.deleteDisabled }}" title="{{ h.deleteTitle }}" aria-label="Excluir execução" style="width:32px;height:32px"><i class="ph ph-trash"></i></button>
+          </td>
+        </tr>
+        </sc-for>
+      </tbody>
+    </table>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ deleteRunOpen }}" hint-placeholder-val="{{ false }}">
+  <div class="dialog-backdrop" style="z-index:20">
+    <div class="dialog" role="dialog" aria-modal="true">
+      <div class="dialog-title">Excluir execução?</div>
+      <div class="dialog-body" style="display:flex;flex-direction:column;gap:8px">
+        <span>{{ deleteRunText }}</span>
+        <span class="text-muted" style="font-size:13px">Os resultados e os logs continuam no disco.</span>
+        <sc-if value="{{ hasDeleteRunError }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;overflow-wrap:anywhere">{{ deleteRunError }}</span></sc-if>
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-secondary" onClick="{{ closeDeleteRun }}">Cancelar</button>
+        <button class="btn btn-primary" onClick="{{ confirmDeleteRun }}">Excluir</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+</main>
+</sc-if>
+
+<sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ false }}">
+<main data-screen-label="Admin" style="width:100%;max-width:1200px;margin:0 auto;padding:40px 24px 72px;display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start">
+  <aside style="display:flex;flex-direction:column;gap:2px;width:200px;flex:none">
+    <h6 class="text-muted" style="margin:0 0 12px 10px">Administração</h6>
+    <button onClick="{{ tabAnalyses }}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:0;border-radius:var(--radius-md);font:inherit;font-size:14px;text-align:left;cursor:pointer;color:{{ at.c1 }};background:{{ at.b1 }}"><i class="ph ph-flow-arrow"></i>Análises</button>
+    <button onClick="{{ tabBrand }}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:0;border-radius:var(--radius-md);font:inherit;font-size:14px;text-align:left;cursor:pointer;color:{{ at.c2 }};background:{{ at.b2 }}"><i class="ph ph-paint-brush"></i>Identidade visual</button>
+    <button onClick="{{ tabConn }}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:0;border-radius:var(--radius-md);font:inherit;font-size:14px;text-align:left;cursor:pointer;color:{{ at.c3 }};background:{{ at.b3 }}"><i class="ph ph-plugs-connected"></i>Conexões</button>
+  </aside>
+
+  <div style="flex:1;min-width:min(100%,520px);display:flex;flex-direction:column;gap:24px">
+
+    <sc-if value="{{ showAnalysesList }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+        <div style="flex:1"><h2>Análises</h2><p class="text-muted" style="margin:0">Pipelines disponíveis no catálogo, seus parâmetros e tempo médio por amostra.</p></div>
+        <button class="btn btn-primary" onClick="{{ newAnalysis }}"><i class="ph ph-plus"></i>Nova análise</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="table" style="min-width:720px">
+          <thead><tr><th>Nome</th><th>Pipeline</th><th>Por amostra</th><th>Paralelo</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <sc-for list="{{ adminRows }}" as="a" hint-placeholder-count="4">
+            <tr>
+              <td>{{ a.name }}</td>
+              <td style="font-family:ui-monospace,Menlo,monospace;font-size:12px" class="text-muted">{{ a.pipelineRef }}</td>
+              <td style="font-size:13px">{{ a.perSample }}</td>
+              <td style="font-size:13px">{{ a.slots }}</td>
+              <td><button class="{{ a.tagClass }}" onClick="{{ a.toggle }}" style="border:0;cursor:pointer;font-family:inherit">{{ a.status }}</button></td>
+              <td style="text-align:right"><button class="btn btn-ghost" onClick="{{ a.edit }}"><i class="ph ph-pencil-simple"></i>Editar</button></td>
+            </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showEditor }}" hint-placeholder-val="{{ false }}">
+      <a href="#" onClick="{{ closeEditor }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;text-decoration:none;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><i class="ph ph-arrow-left"></i>Análises</a>
+      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+        <h2 style="flex:1;margin:0">{{ editorTitle }}</h2>
+        <sc-if value="{{ canDelete }}" hint-placeholder-val="{{ false }}"><button class="btn btn-secondary" onClick="{{ askDelete }}"><i class="ph ph-trash"></i>Excluir</button></sc-if>
+        <button class="btn btn-primary" onClick="{{ saveDraft }}" disabled="{{ saveDisabled }}"><i class="ph ph-floppy-disk"></i>Salvar</button>
+      </div>
+      <span class="text-muted" style="font-size:12px;margin-top:-14px">{{ saveHint }}</span>
+
+      <h5 style="margin:8px 0 0">Informações da pipeline</h5>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px 20px">
+        <div class="field"><label>Nome</label><input class="input" value="{{ draft.name }}" onChange="{{ onDraft.name }}"></div>
+        <div class="field"><label>Identificador</label><input class="input" value="{{ draft.id }}" onChange="{{ onDraft.id }}" style="font-family:ui-monospace,Menlo,monospace;font-size:13px"></div>
+        <div class="field"><label>Categoria</label><input class="input" value="{{ draft.category }}" onChange="{{ onDraft.category }}"></div>
+        <div class="field"><label>Pipeline (repositório)</label><input class="input" value="{{ draft.pipeline }}" onChange="{{ onDraft.pipeline }}" placeholder="nf-core/rnaseq" style="font-family:ui-monospace,Menlo,monospace;font-size:13px"></div>
+        <div class="field"><label>Revisão (opcional)</label><input class="input" value="{{ draft.revision }}" onChange="{{ onDraft.revision }}" placeholder="3.4.2" style="font-family:ui-monospace,Menlo,monospace;font-size:13px"></div>
+        <div class="field"><label>Perfil Nextflow (opcional)</label><input class="input" value="{{ draft.profile }}" onChange="{{ onDraft.profile }}" placeholder="docker" style="font-family:ui-monospace,Menlo,monospace;font-size:13px"></div>
+        <div class="field"><label>Tempo médio por amostra (min)</label><input class="input" type="number" min="1" value="{{ draft.minutes }}" onChange="{{ onDraft.minutes }}"></div>
+        <div class="field"><label>Amostras em paralelo</label><input class="input" type="number" min="1" value="{{ draft.slots }}" onChange="{{ onDraft.slots }}"></div>
+        <div class="field" style="grid-column:1 / -1"><label>Descrição</label><input class="input" value="{{ draft.description }}" onChange="{{ onDraft.description }}"></div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px"><input type="checkbox" checked="{{ draft.enabled }}" onChange="{{ onDraft.enabled }}" style="width:16px;height:16px;accent-color:var(--color-accent);margin:0">Visível no catálogo</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px"><input type="checkbox" checked="{{ draft.stub }}" onChange="{{ onDraft.stub }}" style="width:16px;height:16px;accent-color:var(--color-accent);margin:0">Modo stub (-stub, para testes)</label>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:28px;margin-top:12px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <h5 style="margin:0;flex:1">Schema de parâmetros</h5>
+            <span class="{{ schemaTagClass }}">{{ schemaStatus }}</span>
+            <button class="btn btn-ghost" onClick="{{ formatSchema }}" disabled="{{ schemaInvalid }}"><i class="ph ph-brackets-curly"></i>Formatar</button>
+          </div>
+          <textarea class="input" spellcheck="false" value="{{ draft.schema }}" onChange="{{ onDraft.schema }}" style="min-height:460px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.5;white-space:pre;tab-size:2"></textarea>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span class="text-muted" style="font-size:12px;margin-right:4px">Adicionar campo</span>
+            <sc-for list="{{ addFieldBtns }}" as="b" hint-placeholder-count="6">
+              <button class="tag tag-outline" onClick="{{ b.add }}" disabled="{{ b.disabled }}" title="{{ b.title }}" style="background:transparent;cursor:pointer;font-family:inherit" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">{{ b.label }}</button>
+            </sc-for>
+          </div>
+          <div class="text-muted" style="font-size:12px;line-height:1.6">Tipos: <code>samples</code>, <code>folder</code>, <code>file</code>, <code>select</code>, <code>genome</code>, <code>text</code>, <code>number</code>, <code>boolean</code>. Propriedades: <code>key</code>, <code>type</code>, <code>label</code>, <code>help</code>, <code>required</code>, <code>default</code>, <code>options</code>. Em <code>samples</code>: <code>sources</code> (local, basespace), <code>pattern</code>, <code>paired</code> (false aceita single-end) e <code>sheet.columns</code> (colunas do samplesheet, com <code>{sample}</code>, <code>{lane}</code>, <code>{r1}</code>, <code>{r2}</code>). Em <code>default</code>, <code>{date}</code> vira a data do disparo. O campo <code>outdir</code> é a pasta de resultados: no modo "uma por vez", cada amostra usa uma subpasta.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <h5 style="margin:0">Pré-visualização do formulário</h5>
+          <div class="card" style="padding:18px;gap:16px;box-shadow:var(--shadow-sm)">
+            <sc-if value="{{ previewSamples }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <label style="font-size:12px;color:color-mix(in srgb,var(--color-text) 70%,transparent)">{{ previewSamples.label }}</label>
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px dashed var(--color-divider);border-radius:var(--radius-md);font-size:13px" class="text-muted"><i class="ph ph-files"></i>{{ previewSamples.text }}</div>
+                <div class="text-muted" style="font-size:12px;overflow-wrap:anywhere">{{ previewSamples.sheet }}</div>
+              </div>
+            </sc-if>
+            <sc-for list="{{ previewFields }}" as="f" hint-placeholder-count="3">
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
+              <label style="font-size:12px;color:color-mix(in srgb,var(--color-text) 70%,transparent)">{{ f.label }}{{ f.reqMark }}</label>
+              <sc-if value="{{ f.isSelect }}" hint-placeholder-val="{{ false }}"><select class="input" value="{{ f.value }}" onChange="{{ f.onChange }}"><sc-for list="{{ f.options }}" as="o" hint-placeholder-count="0"><option value="{{ o.value }}">{{ o.label }}</option></sc-for></select></sc-if>
+              <sc-if value="{{ f.isInput }}" hint-placeholder-val="{{ true }}"><input class="input" type="{{ f.inputType }}" value="{{ f.value }}" placeholder="{{ f.placeholder }}" onChange="{{ f.onChange }}"></sc-if>
+              <sc-if value="{{ f.isPath }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:6px"><div style="position:relative;flex:1;min-width:0"><i class="{{ f.pathIcon }}" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6"></i><input class="input" value="{{ f.value }}" placeholder="{{ f.placeholder }}" onChange="{{ f.onChange }}" style="padding-left:32px;font-family:ui-monospace,Menlo,monospace;font-size:13px"></div><sc-if value="{{ f.canBrowse }}" hint-placeholder-val="{{ false }}"><button class="btn btn-secondary btn-icon" onClick="{{ f.browse }}" title="Selecionar pasta" aria-label="Selecionar pasta" style="flex:none;width:36px;height:36px"><i class="ph ph-folder-open"></i></button></sc-if></div></sc-if>
+              <sc-if value="{{ f.isBool }}" hint-placeholder-val="{{ false }}"><label style="display:flex;align-items:center;gap:8px;min-height:36px;cursor:pointer;font-size:14px"><input type="checkbox" checked="{{ f.checked }}" onChange="{{ f.onToggle }}" style="width:16px;height:16px;accent-color:var(--color-accent);margin:0">{{ f.boolText }}</label></sc-if>
+              <sc-if value="{{ f.hasHelp }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="font-size:12px">{{ f.help }}</div></sc-if>
+            </div>
+            </sc-for>
+            <sc-if value="{{ schemaInvalid }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="font-size:13px">{{ schemaError }}</div></sc-if>
+          </div>
+        </div>
+      </div>
+      <sc-if value="{{ deleteOpen }}" hint-placeholder-val="{{ false }}">
+      <div class="dialog-backdrop" style="z-index:20">
+        <div class="dialog" role="dialog" aria-modal="true">
+          <div class="dialog-title">Excluir análise?</div>
+          <div class="dialog-body">{{ deleteText }}</div>
+          <div class="dialog-actions">
+            <button class="btn btn-secondary" onClick="{{ closeDelete }}">Cancelar</button>
+            <button class="btn btn-primary" onClick="{{ deleteDraft }}">Excluir</button>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{ hasAdminError }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:flex-start;gap:8px;font-size:14px;overflow-wrap:anywhere"><i class="ph ph-warning" style="color:var(--color-accent);margin-top:2px"></i><span>{{ adminError }}</span></div>
+    </sc-if>
+
+    <sc-if value="{{ showBrand }}" hint-placeholder-val="{{ false }}">
+      <div><h2>Identidade visual</h2><p class="text-muted" style="margin:0">Logo, nome e cor de destaque exibidos em toda a plataforma. Alterações são salvas automaticamente.</p></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:28px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div class="field"><label>Nome da empresa</label><input class="input" value="{{ brand.name }}" onChange="{{ onBrandName }}"></div>
+          <div class="field">
+            <label>Logo</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <label class="btn btn-secondary" style="cursor:pointer"><input type="file" accept="image/*" onChange="{{ onLogo }}" style="display:none"><i class="ph ph-upload-simple"></i>Enviar imagem</label>
+              <sc-if value="{{ hasLogo }}" hint-placeholder-val="{{ false }}"><button class="btn btn-ghost" onClick="{{ removeLogo }}">Remover</button></sc-if>
+              <span class="text-muted" style="font-size:12px">PNG ou SVG, fundo transparente</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Cor de destaque</label>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <sc-for list="{{ swatches }}" as="w" hint-placeholder-count="5">
+                <button onClick="{{ w.pick }}" title="{{ w.hex }}" style="width:28px;height:28px;border-radius:50%;border:0;cursor:pointer;background:{{ w.hex }};box-shadow:{{ w.ring }}"></button>
+              </sc-for>
+              <input class="input" value="{{ brand.accent }}" onChange="{{ onAccent }}" style="width:110px;font-family:ui-monospace,Menlo,monospace;font-size:13px">
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <span class="text-muted" style="font-size:12px">Pré-visualização</span>
+          <div class="card" style="padding:18px;gap:18px;box-shadow:var(--shadow-sm)">
+            <div style="display:flex;align-items:center;gap:10px;font-family:var(--font-heading);font-weight:500;font-size:16px">
+              <sc-if value="{{ hasLogo }}" hint-placeholder-val="{{ false }}"><span role="img" aria-label="Logo" style="height:26px;width:{{ logoW26 }};background:{{ logoBg }}"></span></sc-if>
+              <sc-if value="{{ noLogo }}" hint-placeholder-val="{{ true }}"><span style="width:26px;height:26px;border:1px solid var(--color-accent);border-radius:var(--radius-md);display:grid;place-items:center;font-size:12px;color:var(--color-accent)">{{ brandInitial }}</span></sc-if>
+              <span>{{ brand.name }}</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <button class="btn btn-primary"><i class="ph ph-rocket-launch"></i>Disparar análise</button>
+              <span class="tag tag-accent">Em execução</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showConn }}" hint-placeholder-val="{{ false }}">
+      <div><h2>Conexões</h2><p class="text-muted" style="margin:0">Como a plataforma executa as pipelines, gera os links de acompanhamento e acessa o BaseSpace. Alterações são salvas automaticamente.</p></div>
+      <sc-for list="{{ connGroups }}" as="g" hint-placeholder-count="3">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <i class="{{ g.icon }}" style="font-size:18px;color:var(--color-accent)"></i>
+          <h5 style="margin:0;flex:1">{{ g.title }}</h5>
+          <sc-if value="{{ g.hasStatus }}" hint-placeholder-val="{{ false }}"><span class="{{ g.statusClass }}" style="display:inline-flex;align-items:center;gap:5px"><i class="{{ g.statusIcon }}"></i>{{ g.status }}</span></sc-if>
+          <button class="btn btn-secondary" onClick="{{ g.test }}" disabled="{{ g.testing }}">{{ g.testLabel }}</button>
+        </div>
+        <sc-if value="{{ g.hasDetail }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;display:flex;gap:6px;overflow-wrap:anywhere"><i class="ph ph-warning" style="color:var(--color-accent);margin-top:2px"></i><span>{{ g.detail }}</span></div></sc-if>
+        <div class="text-muted" style="font-size:12px">{{ g.help }}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px 20px">
+          <sc-for list="{{ g.fields }}" as="c" hint-placeholder-count="3">
+            <div class="field"><label>{{ c.label }}</label><input class="input" type="{{ c.type }}" value="{{ c.value }}" onChange="{{ c.onChange }}" placeholder="{{ c.placeholder }}" autoComplete="off" style="font-family:ui-monospace,Menlo,monospace;font-size:13px"></div>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <sc-for list="{{ g.actions }}" as="b" hint-placeholder-count="0">
+            <button class="btn btn-secondary" onClick="{{ b.run }}" disabled="{{ b.disabled }}">{{ b.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+      </sc-for>
+    </sc-if>
+  </div>
+</main>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showPayloadToUser&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Disparo&quot;}}">
+const DEFAULT_ACCENT='#9184d9';
+const POLL_MS=5000,SAVE_DEBOUNCE_MS=500,MAX_LOGO_BYTES=2*1024*1024;
+const uid=()=>Math.random().toString(36).slice(2,10).padEnd(8,'0');
+const fmtDur=m=>{m=Math.max(0,Math.round(m));const h=Math.floor(m/60),r=m%60;return h?(r?`${h} h ${String(r).padStart(2,'0')} min`:`${h} h`):`${r} min`;};
+const fmtHM=t=>new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+const fmtDM=t=>new Date(t).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+const slug=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const plural=(n,one,many)=>n===1?one:many;
+
+async function api(path,method='GET',body){
+  let res;
+  try{res=await fetch(path,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});}
+  catch(e){throw new Error('Não foi possível falar com o servidor. Confira se a plataforma está rodando.');}
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(data.error||`O servidor respondeu com erro ${res.status}.`);
+  return data;
+}
+
+const SHEET={columns:{sample:'{sample}',fastq_1:'{r1}',fastq_2:'{r2}'}};
+const SF={key:'input',type:'samples',label:'Amostras',required:true,sources:['local','basespace'],pattern:'*_R{1,2}_001.fastq.gz',sheet:SHEET};
+const OUT={key:'outdir',type:'folder',label:'Pasta de resultados',required:true,default:'/data/resultados/{analysis}/{date}'};
+const J=f=>JSON.stringify({fields:f},null,2);
+const SWATCHES=[DEFAULT_ACCENT,'#4fb3b0','#6dba7f','#d4a35a','#d97f8f'];
+const STATE_LABEL={queued:'Na fila',downloading:'Baixando do BaseSpace',running:'Em execução',succeeded:'Sucesso',failed:'Falhou',cancelled:'Cancelada',interrupted:'Interrompida'};
+const STATE_CLASS={queued:'tag-st-queued',downloading:'tag-st-running',running:'tag-st-running',succeeded:'tag-st-success',failed:'tag-st-failed',cancelled:'tag-neutral',interrupted:'tag-st-interrupted'};
+const stateClass=st=>`tag ${STATE_CLASS[st]||'tag-neutral'}`;
+const ACTIVE=['queued','downloading','running'];
+
+function parseSchema(text){
+  try{const o=JSON.parse(text);const f=Array.isArray(o)?o:o&&o.fields;
+    if(!Array.isArray(f))return {ok:false,error:'O schema precisa ter uma lista "fields".',fields:[]};
+    const bad=f.findIndex(x=>!x||!x.key||!x.type);
+    if(bad>=0)return {ok:false,error:`Campo ${bad+1} sem "key" ou "type".`,fields:[]};
+    return {ok:true,fields:f,obj:o};
+  }catch(e){return {ok:false,error:'JSON inválido: '+e.message,fields:[]};}
+}
+const resolveDefault=(d,id)=>typeof d==='string'?d.replaceAll('{date}',today()).replaceAll('{analysis}',id):d;
+function defaultsFor(fields,id){const p={};fields.forEach(f=>{if(f.type==='samples')return;p[f.key]=f.default!==undefined?resolveDefault(f.default,id):(f.type==='boolean'?false:((f.type==='select'||f.type==='genome')&&f.options&&f.options.length?(typeof f.options[0]==='object'?f.options[0].value:f.options[0]):''));});return p;}
+
+function buildFields(fields,values,onSet,onBrowse){
+  return fields.filter(f=>f.type!=='samples').map(f=>{const t=f.type,v=values[f.key];
+    const isSelect=t==='select'||t==='genome',isBool=t==='boolean',isPath=t==='folder'||t==='file',isInput=!isSelect&&!isBool&&!isPath;
+    return {key:f.key,label:f.label||f.key,help:f.help||'',hasHelp:!!f.help,required:!!f.required,reqMark:f.required?' *':'',
+      isSelect,isBool,isPath,isInput,inputType:t==='number'?'number':'text',pathIcon:t==='folder'?'ph ph-folder-simple':'ph ph-file',
+      canBrowse:t==='folder'&&!!onBrowse,browse:()=>onBrowse&&onBrowse(f.key,v),
+      value:v==null?'':v,checked:!!v,boolText:v?'Ativado':'Desativado',
+      placeholder:f.placeholder||(t==='folder'?'/caminho/para/pasta':t==='file'?'/caminho/para/arquivo':''),
+      options:(f.options||[]).map(o=>typeof o==='object'?o:{value:o,label:o}),
+      onChange:e=>onSet(f.key,t==='number'&&e.target.value!==''?Number(e.target.value):e.target.value),
+      onToggle:e=>onSet(f.key,e.target.checked)};});
+}
+
+const etaFor=(a,n,mode)=>{const per=+a.minutes||0,slots=Math.max(1,+a.slots||1);return mode==='parallel'?per*Math.ceil(n/slots):per*n;};
+
+class Component extends DCLogic {
+  state={ready:false,loadError:'',view:'catalog',adminTab:'analyses',analyses:[],brand:{name:'',logo:'',accent:DEFAULT_ACCENT},conn:{},seqeraToken:'',runs:[],recentPaths:[],
+    search:'',run:null,draft:null,preview:{},resultId:null,copied:'',connTest:{},picker:null,saving:false,saveError:'',adminError:'',deleteOpen:false,cancelId:null,cancelError:'',pollFailed:false,deleteRunId:null,deleteRunError:'',firedId:null,resuming:{},resumeError:''};
+
+  componentDidMount(){this.load();
+    this.timer=setInterval(()=>{if(['result','history'].includes(this.state.view))this.refreshRuns();},POLL_MS);}
+  componentWillUnmount(){clearInterval(this.timer);clearTimeout(this.brandTimer);clearTimeout(this.connTimer);}
+
+  async load(){this.setState({loadError:''});
+    try{const d=await api('/api/bootstrap');
+      this.setState({ready:true,analyses:d.analyses,brand:d.brand,conn:d.connections,runs:d.runs,recentPaths:d.recentPaths});
+    }catch(e){this.setState({loadError:e.message});}}
+  async refreshRuns(){
+    try{const d=await api('/api/runs');this.setState({runs:d.runs,pollFailed:false});}
+    catch(e){this.setState({pollFailed:true});}}
+
+  logoUrl(d){if(!d)return '';if(this._logoSrc===d)return this._logoBlob;
+    try{const [h,b]=d.split(',');const mime=(h.match(/data:([^;]+)/)||[])[1]||'image/png';const bin=atob(b);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+      if(this._logoBlob)URL.revokeObjectURL(this._logoBlob);this._logoBlob=URL.createObjectURL(new Blob([u],{type:mime}));this._logoSrc=d;this._logoAR=0;const im=new Image();im.onload=()=>{const W=im.naturalWidth,H=im.naturalHeight;let ar=W/H||1;
+        try{const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.drawImage(im,0,0);const px=x.getImageData(0,0,W,H).data;
+          let x0=W,y0=H,x1=-1,y1=-1;for(let y=0;y<H;y++)for(let i=0;i<W;i++)if(px[(y*W+i)*4+3]>8){if(i<x0)x0=i;if(i>x1)x1=i;if(y<y0)y0=y;if(y>y1)y1=y;}
+          if(x1>=x0&&(x0>0||y0>0||x1<W-1||y1<H-1)){const w=x1-x0+1,hh=y1-y0+1,c2=document.createElement('canvas');c2.width=w;c2.height=hh;c2.getContext('2d').drawImage(im,x0,y0,w,hh,0,0,w,hh);
+            ar=w/hh;c2.toBlob(b=>{if(!b)return;URL.revokeObjectURL(this._logoBlob);this._logoBlob=URL.createObjectURL(b);this._logoAR=ar;this.forceUpdate();});return;}}catch(e){}
+        this._logoAR=ar;this.forceUpdate();};im.src=this._logoBlob;}catch(e){return '';}
+    return this._logoBlob;}
+  setRun(p){this.setState(st=>({run:{...st.run,...(typeof p==='function'?p(st.run):p)}}));}
+  go(view){return e=>{if(e&&e.preventDefault)e.preventDefault();this.setState({view});if(view==='result'||view==='history')this.refreshRuns();};}
+
+  startRun(a){const sc=parseSchema(a.schema),sf=sc.fields.find(f=>f.type==='samples')||{};
+    this.setState({view:'run',picker:null,run:{analysisId:a.id,runId:'run-'+uid(),step:1,source:(sf.sources&&sf.sources[0])||'local',path:'',bsQuery:'',bsProject:'',bsProjectName:'',bsMatches:[],
+      scanning:false,scanned:false,scanError:'',warnings:[],samples:[],params:defaultsFor(sc.fields,a.id),mode:null,showPayload:false,msgIdx:0,previewJobs:[],confirm:false,sending:false,sendError:''}});}
+
+  resetScan(extra){this._scanSeq=(this._scanSeq||0)+1;this.setRun({scanning:false,scanned:false,scanError:'',warnings:[],samples:[],...extra});}
+
+  async scan(projectId,projectName){const r=this.state.run,seq=(this._scanSeq=(this._scanSeq||0)+1);
+    const stale=()=>seq!==this._scanSeq;
+    this.setRun({scanning:true,scanned:false,scanError:'',warnings:[],samples:[],...(r.source==='basespace'&&!projectId?{bsMatches:[],bsProject:'',bsProjectName:''}:{})});
+    try{
+      if(r.source==='local'){const path=r.path.trim(),d=await api('/api/scan','POST',{analysisId:r.analysisId,path});if(stale())return;
+        this.setRun({scanning:false,scanned:true,path,samples:d.samples,warnings:d.warnings||[]});return;}
+      const d=await api('/api/basespace/scan','POST',{analysisId:r.analysisId,query:r.bsQuery,projectId,projectName});if(stale())return;
+      if(!d.project){const m=d.matches||[];
+        this.setRun({scanning:false,bsMatches:m,scanError:m.length?'':`Nenhum projeto encontrado com o nome "${r.bsQuery.trim()}".`});return;}
+      this.setRun({scanning:false,scanned:true,bsProject:d.project.id,bsProjectName:d.project.name,samples:d.samples,warnings:d.warnings||[]});
+    }catch(e){if(!stale())this.setRun({scanning:false,scanError:e.message});}}
+
+  dispatchBody(r){const sel=r.samples.filter(x=>x.selected);
+    return {runId:r.runId,analysisId:r.analysisId,mode:r.mode,params:r.params,sampleIds:sel.map(x=>x.id),
+      source:r.source==='local'?{type:'local',path:r.path}:{type:'basespace',projectId:r.bsProject,projectName:r.bsProjectName}};}
+
+  async loadPreview(){const r=this.state.run;if(!this.props.showPayloadToUser||!r||!r.mode)return;
+    try{const d=await api('/api/runs/preview','POST',this.dispatchBody(r));this.setRun({previewJobs:d.jobs,msgIdx:0});}
+    catch(e){this.setRun({previewJobs:[{erro:e.message}],msgIdx:0});}}
+
+  setMode(mode){this.setRun({mode,msgIdx:0});setTimeout(()=>this.loadPreview());}
+
+  async dispatch(){const r=this.state.run;this.setRun({sending:true,sendError:''});
+    try{const rec=await api('/api/runs','POST',this.dispatchBody(r));
+      this.setState(st=>({runs:[rec,...st.runs.filter(x=>x.id!==rec.id)],view:'result',resultId:rec.id,firedId:rec.id,resumeError:'',run:null,
+        recentPaths:rec.source.type==='local'?[rec.source.path,...st.recentPaths.filter(p=>p!==rec.source.path)].slice(0,5):st.recentPaths}));
+      this.refreshRuns();
+    }catch(e){this.setRun({sending:false,sendError:e.message});}}
+
+  async openPicker(target,start){this.setState({picker:{target,path:start||'',parent:null,dirs:[],fastqs:0,loading:true,error:''}});
+    await this.browseTo(start||'',true);}
+  async browseTo(path,fallback){this.setState(st=>({picker:st.picker&&{...st.picker,loading:true,error:''}}));
+    try{const d=await api('/api/fs/browse'+(path?`?path=${encodeURIComponent(path)}`:''));
+      this.setState(st=>({picker:st.picker&&{...st.picker,...d,loading:false,error:''}}));
+    }catch(e){
+      if(fallback&&path){await this.browseTo('',false);return;}
+      this.setState(st=>({picker:st.picker&&{...st.picker,loading:false,error:e.message}}));}}
+  choosePicker(){const {target,path}=this.state.picker;
+    if(target==='source')this.resetScan({path});
+    else this.setRun(rr=>({params:{...rr.params,[target]:path}}));
+    this.setState({picker:null});}
+
+  copy(url){try{navigator.clipboard.writeText(url);}catch(e){}this.setState({copied:url});setTimeout(()=>this.setState({copied:''}),1500);}
+
+  async cancelRun(){const id=this.state.cancelId;
+    try{await api(`/api/runs/${encodeURIComponent(id)}/cancel`,'POST',{});this.setState({cancelId:null,cancelError:''});this.refreshRuns();}
+    catch(e){this.setState({cancelError:e.message});}}
+
+  async resumeJob(id){this.setState(st=>({resuming:{...st.resuming,[id]:true},resumeError:''}));
+    try{await api(`/api/jobs/${encodeURIComponent(id)}/resume`,'POST',{});await this.refreshRuns();}
+    catch(e){this.setState({resumeError:e.message});}
+    this.setState(st=>{const resuming={...st.resuming};delete resuming[id];return {resuming};});}
+
+  async deleteRun(){const id=this.state.deleteRunId;
+    try{await api(`/api/runs/${encodeURIComponent(id)}`,'DELETE');
+      this.setState(st=>({runs:st.runs.filter(x=>x.id!==id),deleteRunId:null,deleteRunError:'',resultId:st.resultId===id?null:st.resultId}));
+    }catch(e){this.setState({deleteRunError:e.message});}}
+
+  editAnalysis(a){this.setState({draft:{...a,_orig:a.id},preview:{},saveError:'',deleteOpen:false});}
+  setDraft(k,v){this.setState(st=>{const d={...st.draft,[k]:v};if(k==='name'&&!st.draft._orig&&(!st.draft.id||st.draft.id===slug(st.draft.name)))d.id=slug(v);return {draft:d};});}
+  async saveDraft(){const {_orig,...a}=this.state.draft;this.setState({saving:true,saveError:''});
+    try{const saved=await api(_orig?`/api/analyses/${encodeURIComponent(_orig)}`:'/api/analyses',_orig?'PUT':'POST',a);
+      this.setState(st=>({saving:false,draft:null,analyses:_orig?st.analyses.map(x=>x.id===_orig?saved:x):[...st.analyses,saved]}));
+    }catch(e){this.setState({saving:false,saveError:e.message});}}
+  async deleteDraft(){const id=this.state.draft._orig;
+    try{await api(`/api/analyses/${encodeURIComponent(id)}`,'DELETE');this.setState(st=>({analyses:st.analyses.filter(x=>x.id!==id),draft:null,deleteOpen:false}));}
+    catch(e){this.setState({deleteOpen:false,saveError:e.message});}}
+  async toggleAnalysis(a){const next={...a,enabled:!a.enabled};this.setState({adminError:''});
+    try{const saved=await api(`/api/analyses/${encodeURIComponent(a.id)}`,'PUT',next);this.setState(st=>({analyses:st.analyses.map(x=>x.id===a.id?saved:x)}));}
+    catch(e){this.setState({adminError:e.message});}}
+  addField(type){const d=this.state.draft,sc=parseSchema(d.schema);if(!sc.ok)return;const n=sc.fields.length+1;
+    const f={key:`campo_${n}`,type,label:'Novo campo'};if(type==='select')f.options=['opcao_a','opcao_b'];if(type==='boolean')f.default=false;if(type==='folder')f.default='/data/resultados/{date}';
+    const obj=Array.isArray(sc.obj)?{fields:[...sc.fields,f]}:{...sc.obj,fields:[...sc.fields,f]};this.setDraft('schema',JSON.stringify(obj,null,2));}
+  // Todo schema tem um único campo de amostras: o samplesheet entra nele, ou cria o campo se ainda não existir.
+  addSamplesheet(){const d=this.state.draft,sc=parseSchema(d.schema);if(!sc.ok)return;
+    const has=sc.fields.some(f=>f.type==='samples');
+    const fields=has?sc.fields.map(f=>f.type==='samples'&&!f.sheet?{...f,sheet:SHEET}:f):[SF,...sc.fields];
+    const obj=Array.isArray(sc.obj)?{fields}:{...sc.obj,fields};this.setDraft('schema',JSON.stringify(obj,null,2));}
+
+  saveBrand(patch,immediate){this.setState(st=>({brand:{...st.brand,...patch}}));
+    const valid={...patch};if('accent' in valid&&!/^#[0-9a-f]{6}$/i.test(valid.accent.trim()))delete valid.accent;
+    this._brandPatch={...this._brandPatch,...valid};clearTimeout(this.brandTimer);
+    this.brandTimer=setTimeout(()=>this.flushBrand(),immediate?0:SAVE_DEBOUNCE_MS);}
+  async flushBrand(){const patch=this._brandPatch;this._brandPatch=null;if(!patch||!Object.keys(patch).length)return;
+    try{await api('/api/brand','PUT',patch);this.setState({adminError:''});}
+    catch(e){this.setState({adminError:`Não salvo: ${e.message}`});}}
+
+  saveConn(patch){this.setState(st=>({conn:{...st.conn,...patch}}));
+    this._connPatch={...this._connPatch,...patch};clearTimeout(this.connTimer);
+    this.connTimer=setTimeout(()=>this.flushConn(),SAVE_DEBOUNCE_MS);}
+  // Só o estado derivado volta do servidor: os campos seguem como digitados, sem mexer no cursor.
+  async flushConn(extra){clearTimeout(this.connTimer);const patch={...this._connPatch,...extra};this._connPatch=null;if(!Object.keys(patch).length)return true;
+    try{const d=await api('/api/settings','PUT',patch);
+      this.setState(st=>({conn:{...st.conn,hasSeqeraToken:d.hasSeqeraToken,bsCheck:d.bsCheck},adminError:''}));return true;
+    }catch(e){this.setState({adminError:`Não salvo: ${e.message}`});return false;}}
+  async saveToken(){const token=this.state.seqeraToken.trim();if(!token)return;
+    if(await this.flushConn({seqeraToken:token}))this.setState({seqeraToken:''});}
+  async clearToken(){await this.flushConn({clearSeqeraToken:true});this.setState(st=>({connTest:{...st.connTest,seqera:null}}));}
+
+  async testConn(k){this.setState(st=>({connTest:{...st.connTest,[k]:{pending:true}}}));
+    await this.flushConn();
+    try{const d=await api(`/api/test/${k}`,'POST',{});
+      this.setState(st=>({connTest:{...st.connTest,[k]:d},conn:k==='basespace'?{...st.conn,bsCheck:d}:st.conn}));
+    }catch(e){this.setState(st=>({connTest:{...st.connTest,[k]:{ok:false,text:e.message}}}));}}
+
+  renderVals(){
+    const s=this.state,v=s.view,muted='color-mix(in srgb, var(--color-text) 45%, transparent)';
+    if(s.brand.name&&document.title!==s.brand.name)document.title=s.brand.name;
+    const ax=(s.brand.accent||'').trim(),custom=/^#[0-9a-f]{6}$/i.test(ax)&&ax.toLowerCase()!==DEFAULT_ACCENT,mx=(p,w)=>custom?`color-mix(in oklch, ${ax} ${p}%, ${w})`:undefined;
+    const logoUrl=this.logoUrl(s.brand.logo),ar=Math.min(this._logoAR||3,8);
+    const out={acc:{a:custom?ax:undefined,a300:mx(50,'var(--color-text)'),a400:mx(75,'var(--color-text)'),a700:mx(55,'var(--color-bg)'),a800:mx(35,'var(--color-bg)'),a900:mx(18,'var(--color-bg)')},
+      brand:s.brand,hasLogo:!!s.brand.logo,logoW28:Math.round(28*ar)+'px',logoW26:Math.round(26*ar)+'px',logoBg:logoUrl?`url("${logoUrl}") left center / contain no-repeat`:'none',noLogo:!s.brand.logo,brandInitial:(s.brand.name||'').trim().charAt(0).toUpperCase(),
+      isLoading:!s.ready&&!s.loadError,hasLoadError:!s.ready&&!!s.loadError,loadError:s.loadError,reload:()=>this.load(),
+      isCatalog:s.ready&&v==='catalog',isRun:s.ready&&v==='run'&&!!s.run,isResult:s.ready&&v==='result',isHistory:s.ready&&v==='history',isAdmin:s.ready&&v==='admin',
+      navCatalog:['catalog','run','result'].includes(v)?'page':undefined,navHistory:v==='history'?'page':undefined,navAdmin:v==='admin'?'page':undefined,
+      goCatalog:this.go('catalog'),goHistory:this.go('history'),goAdmin:this.go('admin'),pollFailed:s.pollFailed,
+      goConnections:()=>this.setState({view:'admin',adminTab:'conn',draft:null}),
+      search:s.search,onSearch:e=>this.setState({search:e.target.value}),
+      spinner:React.createElement('span',{style:{width:14,height:14,borderRadius:'50%',border:'2px solid var(--color-neutral-700)',borderTopColor:'var(--color-accent)',animation:'pl-spin .8s linear infinite',display:'inline-block'}})};
+
+    const q=s.search.trim().toLowerCase();
+    out.catalog=s.analyses.filter(a=>a.enabled&&(!q||[a.name,a.category,a.pipeline,a.description].join(' ').toLowerCase().includes(q)))
+      .map(a=>({...a,perSample:fmtDur(a.minutes),open:()=>this.startRun(a)}));
+    out.catalogEmpty=out.catalog.length===0;
+
+    if(s.run){const r=s.run,a=s.analyses.find(x=>x.id===r.analysisId)||{};const sc=parseSchema(a.schema||'{}');
+      const sf=sc.fields.find(f=>f.type==='samples')||{};const sources=sf.sources||['local','basespace'];
+      const sel=r.samples.filter(x=>x.selected),n=sel.length,valid=r.samples.filter(x=>!x.invalid);
+      const pf=buildFields(sc.fields,r.params,(k,val)=>this.setRun(rr=>({params:{...rr.params,[k]:val}})),(k,cur)=>this.openPicker(k,cur));
+      const missing=pf.filter(f=>f.required&&!f.isBool&&String(f.value).trim()==='');
+      const done=c=>c<r.step?'var(--color-accent-300)':c===r.step?'var(--color-accent)':muted;
+      const bsOk=!!(s.conn.bsCheck&&s.conn.bsCheck.ok),isBs=r.source==='basespace';
+      Object.assign(out,{run:r,ra:{...a,perSample:fmtDur(a.minutes)},st:{c1:done(1),c2:done(2),c3:done(3)},
+        step1:r.step===1,step2:r.step===2,step3:r.step===3,notLast:r.step<3,
+        srcChoice:sources.includes('local')&&sources.includes('basespace'),srcLocal:r.source==='local',srcBs:isBs,
+        setSrcLocal:()=>this.resetScan({source:'local'}),setSrcBs:()=>this.resetScan({source:'basespace'}),
+        onPath:e=>this.resetScan({path:e.target.value}),
+        onBsQuery:e=>this.resetScan({bsQuery:e.target.value,bsMatches:[],bsProject:'',bsProjectName:''}),
+        onBsProject:e=>{const id=e.target.value,m=r.bsMatches.find(x=>x.id===id);if(!m){this.resetScan({bsProject:'',bsProjectName:''});return;}this.setRun({bsProject:id,bsProjectName:m.name});this.scan(id,m.name);},
+        hasBsMatches:r.bsMatches.length>0,bsMatchOptions:r.bsMatches,bsMatchesText:`${r.bsMatches.length} projetos encontrados com esse nome. Escolha um:`,bsBlocked:isBs&&!bsOk,
+        recent:s.recentPaths.map(p=>({path:p,label:p.split('/').filter(Boolean).pop()||p,pick:()=>this.resetScan({path:p})})),hasRecent:s.recentPaths.length>0,
+        browseSource:()=>this.openPicker('source',r.path.trim()),
+        scan:()=>this.scan(),scanDisabled:r.scanning||(isBs?(!bsOk||!r.bsQuery.trim()):!r.path.trim()),
+        scanTarget:isBs?(r.bsProjectName||r.bsQuery.trim()):r.path,pattern:sf.pattern||'*.fastq.gz',
+        hasScanError:!!r.scanError,noSamples:r.scanned&&r.samples.length===0,scanWarnings:r.warnings.map(w=>({text:w})),
+        showSamples:r.scanned&&r.samples.length>0,foundText:`${r.samples.length} ${plural(r.samples.length,'amostra identificada','amostras identificadas')}`,
+        selectedText:`${n} ${plural(n,'selecionada','selecionadas')}${r.samples.length-valid.length?` · ${r.samples.length-valid.length} com arquivo faltando`:''}`,
+        allSelected:valid.length>0&&valid.every(x=>x.selected),
+        toggleAll:()=>this.setRun(rr=>{const all=rr.samples.filter(x=>!x.invalid).every(x=>x.selected);return {samples:rr.samples.map(x=>x.invalid?x:{...x,selected:!all})};}),
+        sampleRows:r.samples.map(x=>({...x,r1:x.r1||'—',r2:x.r2||'—',cursor:x.invalid?'default':'pointer',opacity:x.invalid?0.6:1,
+          toggle:()=>{if(x.invalid)return;this.setRun(rr=>({samples:rr.samples.map(y=>y.id===x.id?{...y,selected:!y.selected}:y)}));}})),
+        paramFields:pf});
+      const eSeq=etaFor(a,n,'sequential'),ePar=etaFor(a,n,'parallel');
+      const on='0 0 0 1px var(--color-accent), 0 0 24px color-mix(in srgb, var(--color-accent) 18%, transparent)';
+      out.mode={seqShadow:r.mode==='sequential'?on:'var(--shadow-sm)',parShadow:r.mode==='parallel'?on:'var(--shadow-sm)',
+        seqEta:fmtDur(eSeq),parEta:fmtDur(ePar),seqText:`${n} ${plural(n,'execução','execuções')} do Nextflow, uma após a outra, com um link por amostra`,
+        parText:`1 execução do Nextflow com todas as amostras e um único link. Estimativa com até ${a.slots} em paralelo`};
+      out.setModeSeq=()=>this.setMode('sequential');out.setModePar=()=>this.setMode('parallel');
+      const srcLabel=r.source==='local'?r.path:`BaseSpace · ${r.bsProjectName}`;
+      out.summary=[{label:'Origem',value:srcLabel},{label:'Amostras',value:`${n} · ${sel.slice(0,3).map(x=>x.name).join(', ')}${n>3?` e mais ${n-3}`:''}`},
+        ...pf.map(f=>({label:f.label,value:f.isBool?(f.checked?'Sim':'Não'):(String(f.value)||'—')}))];
+      const jobsPreview=r.previewJobs,i=Math.min(r.msgIdx,Math.max(0,jobsPreview.length-1));
+      Object.assign(out,{msgCount:jobsPreview.length,msgJson:jobsPreview.length?JSON.stringify(jobsPreview[i],null,2):'Escolha como executar as amostras.',msgLabel:`Job ${jobsPreview.length?i+1:0} de ${jobsPreview.length}`,
+        msgPrevDisabled:i<=0,msgNextDisabled:i>=jobsPreview.length-1,msgPrev:()=>this.setRun({msgIdx:i-1}),msgNext:()=>this.setRun({msgIdx:i+1})});
+      out.allowPayload=this.props.showPayloadToUser===true;
+      out.payloadIcon=r.showPayload?'ph ph-caret-down':'ph ph-caret-right';out.togglePayload=()=>this.setRun({showPayload:!r.showPayload});
+      out.backLabel=r.step===1?'Cancelar':'Voltar';
+      out.runBack=()=>r.step===1?this.setState({view:'catalog',run:null}):this.setRun({step:r.step-1});
+      out.nextDisabled=r.step===1?n===0:missing.length>0;
+      out.fireDisabled=!r.mode;
+      out.blockHint=r.step===1&&!r.scanned?'Identifique os FASTQs para continuar':r.step===1&&n===0?'Selecione ao menos uma amostra':r.step===2&&missing.length?`Preencha: ${missing.map(f=>f.label).join(', ')}`:r.step===3&&!r.mode?'Escolha como executar as amostras':'';
+      out.runNext=()=>this.setRun({step:r.step+1});
+      out.openConfirm=()=>this.setRun({confirm:true,sendError:''});out.closeConfirm=()=>this.setRun({confirm:false});
+      out.confirmText=`${n} ${plural(n,'amostra','amostras')} de ${a.name}, ${r.mode==='parallel'?'todas ao mesmo tempo':'uma por vez'}. Tempo estimado: ${fmtDur(r.mode==='parallel'?ePar:eSeq)}.`;
+      out.confirmSub=r.mode==='parallel'?'O Nextflow será executado 1 vez com todas as amostras.':`O Nextflow será executado ${n} ${plural(n,'vez','vezes')}, uma amostra de cada vez.`;
+      out.hasSendError=!!r.sendError;
+      out.sendLabel=r.sending?'Enviando…':'Disparar';out.dispatch=()=>this.dispatch();
+
+      const pk=s.picker;
+      out.pickerOpen=!!pk;
+      if(pk){out.picker=pk;out.pickerDirs=pk.dirs.map(name=>({name,open:()=>this.browseTo(`${pk.path.replace(/\/$/,'')}/${name}`)}));
+        out.pickerEmpty=!pk.loading&&!pk.error&&pk.dirs.length===0;out.pickerAtRoot=!pk.parent||pk.loading;out.pickerHasError=!!pk.error;
+        out.pickerInfo=pk.loading?'Carregando…':pk.fastqs?`${pk.fastqs} ${plural(pk.fastqs,'arquivo FASTQ','arquivos FASTQ')} nesta pasta`:'';
+        out.pickerChooseDisabled=pk.loading||!!pk.error||!pk.path;
+        out.pickerUp=()=>this.browseTo(pk.parent);out.pickerChoose=()=>this.choosePicker();out.pickerClose=()=>this.setState({picker:null});}
+    }
+
+    const rec=s.runs.find(x=>x.id===s.resultId);
+    if(rec){const active=rec.jobs.some(j=>ACTIVE.includes(j.state)),lastEnd=Math.max(...rec.jobs.map(j=>j.finishedAt||0)),msgs=rec.jobs.length,params=Object.entries(rec.params||{}),fired=s.firedId===rec.id;
+      // Uma retomada pode terminar depois da previsão original: conta a partir do início dela.
+      const planned=Math.max(rec.createdAt+rec.etaMin*60000,...rec.jobs.filter(j=>ACTIVE.includes(j.state)&&(j.attempts||[]).length).map(j=>(j.startedAt||Date.now())+(j.estimatedMinutes||0)*60000));
+      const end=active||!lastEnd?planned:lastEnd;
+      const row=(label,value,copyTitle)=>({label,value,copy:()=>this.copy(value),copyTitle,copyIcon:s.copied===value?'ph ph-check':'ph ph-copy'});
+      out.res={analysisName:rec.analysisName,stateLabel:STATE_LABEL[rec.state]||rec.state,stateClass:stateClass(rec.state),
+        kicker:fired?'Disparo enviado':'Informações da execução',kickerIcon:fired?'ph ph-check-circle':'ph ph-info',
+        line:`${fmtDM(rec.createdAt)} ${fmtHM(rec.createdAt)} · ${rec.n} ${plural(rec.n,'amostra','amostras')} · ${rec.mode==='parallel'?'todas ao mesmo tempo':'uma por vez'} · ${msgs} ${plural(msgs,'execução','execuções')} do Nextflow`,
+        hasAhead:rec.ahead>0,aheadText:`${rec.ahead} ${plural(rec.ahead,'execução','execuções')} à frente na fila. A estimativa não inclui essa espera.`,
+        eta:fmtDur(rec.etaMin),etaBasis:rec.mode==='parallel'?`${rec.n} ${plural(rec.n,'amostra','amostras')} em lotes de até ${rec.slots}`:`${rec.n} × ${fmtDur(rec.minutes)} por amostra`,
+        endLabel:active||!lastEnd?'Término previsto':'Término',end:fmtHM(end),endDate:fmtDM(end),
+        canCancel:active,askCancel:()=>this.setState({cancelId:rec.id,cancelError:''}),
+        params:params.map(([key,value])=>({key,value:String(value)})),noParams:params.length===0,
+        sourceText:`Origem: ${rec.source.type==='local'?rec.source.path:`BaseSpace · ${rec.source.project_name}`}`,samplesText:`Amostras: ${(rec.sampleNames||[]).join(', ')}`,
+        jobsTitle:msgs===1?'Execução':`Execuções (${msgs})`,
+        links:rec.jobs.map(j=>{const prior=j.attempts||[],n=prior.length,note=j.message||(j.url?'':j.state==='queued'?'O link aparece quando esta execução começar.':j.state==='downloading'?'Baixando os arquivos do BaseSpace. O link aparece quando o Nextflow começar.':j.state==='running'?(s.conn.hasSeqeraToken?'Aguardando o link do Seqera…':'Sem link: token do Seqera não configurado em Conexões.'):'');
+          const own=Object.entries(j.params||{}).filter(([k,val])=>(rec.params||{})[k]!==val).map(([k,val])=>row(k,String(val),`Copiar ${k}`));
+          const rows=[...(j.url?[row('Link do Seqera',j.url,'Copiar link')]:[]),...(j.command?[row(n?'Comando executado (retomada)':'Comando executado',j.command,'Copiar comando')]:[]),
+            ...(j.workDir?[row('Pasta work',j.workDir,'Copiar caminho da pasta work'),row('Pasta do job',j.dir,'Copiar caminho da pasta do job')]:[]),...own];
+          return {label:j.label,url:j.url||'',hasUrl:!!j.url,note,hasNote:!!note,stateLabel:STATE_LABEL[j.state]||j.state,stateClass:stateClass(j.state),rows,
+            noCommand:!j.command,noCommandText:ACTIVE.includes(j.state)?'O comando aparece quando esta execução começar.':'Comando não registrado: esta execução não chegou a iniciar o Nextflow ou é anterior a este registro.',
+            openDefault:msgs<=3||['failed','interrupted'].includes(j.state),canResume:j.canResume,resuming:!!s.resuming[j.id],resume:()=>this.resumeJob(j.id),
+            hasAttemptText:n>0,attemptText:`Tentativa ${n+1}`,hasAttempts:n>0,attemptsTitle:n===1?'Ver a tentativa anterior':`Ver as ${n} tentativas anteriores`,
+            attempts:prior.map(t=>({title:`Tentativa ${t.attempt}${t.startedAt?` · ${fmtDM(t.startedAt)} ${fmtHM(t.startedAt)}`:''}`,stateLabel:STATE_LABEL[t.state]||t.state,stateClass:stateClass(t.state),
+              url:t.url||'',hasUrl:!!t.url,command:t.command||'',hasCommand:!!t.command,message:t.message||'',hasMessage:!!t.message}))};})};}
+    out.hasResumeError=!!s.resumeError;out.resumeError=s.resumeError;
+    out.cancelOpen=!!s.cancelId;out.hasCancelError=!!s.cancelError;out.cancelError=s.cancelError;
+    out.closeCancel=()=>this.setState({cancelId:null,cancelError:''});out.confirmCancel=()=>this.cancelRun();
+
+    out.historyEmpty=s.runs.length===0;out.hasHistory=s.runs.length>0;
+    out.historyRows=s.runs.map(x=>{const when=`${fmtDM(x.createdAt)} ${fmtHM(x.createdAt)}`,active=x.jobs.some(j=>ACTIVE.includes(j.state));
+      return {analysisName:x.analysisName,n:x.n,when,modeLabel:x.mode==='parallel'?'Todas ao mesmo tempo':'Uma por vez',
+        stateLabel:STATE_LABEL[x.state]||x.state,stateClass:stateClass(x.state),open:()=>{this.setState({view:'result',resultId:x.id,firedId:null,resumeError:''});this.refreshRuns();},
+        deleteDisabled:active,deleteTitle:active?'Cancele a execução antes de excluir':'Excluir do histórico',askDelete:()=>this.setState({deleteRunId:x.id,deleteRunError:''})};});
+    const delRun=s.runs.find(x=>x.id===s.deleteRunId);
+    out.deleteRunOpen=!!delRun;out.deleteRunText=delRun?`"${delRun.analysisName}" de ${fmtDM(delRun.createdAt)} ${fmtHM(delRun.createdAt)} sai do histórico.`:'';
+    out.hasDeleteRunError=!!s.deleteRunError;out.deleteRunError=s.deleteRunError;
+    out.closeDeleteRun=()=>this.setState({deleteRunId:null,deleteRunError:''});out.confirmDeleteRun=()=>this.deleteRun();
+
+    const t=s.adminTab,on=k=>t===k,ac='var(--color-accent)',ab='color-mix(in srgb, var(--color-accent) 12%, transparent)';
+    out.at={c1:on('analyses')?ac:'var(--color-text)',b1:on('analyses')?ab:'transparent',c2:on('brand')?ac:'var(--color-text)',b2:on('brand')?ab:'transparent',c3:on('conn')?ac:'var(--color-text)',b3:on('conn')?ab:'transparent'};
+    out.tabAnalyses=()=>this.setState({adminTab:'analyses',draft:null,adminError:''});out.tabBrand=()=>this.setState({adminTab:'brand',adminError:''});out.tabConn=()=>this.setState({adminTab:'conn',adminError:''});
+    out.showAnalysesList=on('analyses')&&!s.draft;out.showEditor=on('analyses')&&!!s.draft;out.showBrand=on('brand');out.showConn=on('conn');
+    out.hasAdminError=!!s.adminError;out.adminError=s.adminError;
+    out.adminRows=s.analyses.map(a=>({...a,pipelineRef:a.revision?`${a.pipeline}@${a.revision}`:a.pipeline,perSample:fmtDur(a.minutes),status:a.enabled?'Ativa':'Inativa',tagClass:a.enabled?'tag tag-accent':'tag tag-neutral',
+      toggle:()=>this.toggleAnalysis(a),edit:()=>this.editAnalysis(a)}));
+    out.newAnalysis=()=>this.setState({saveError:'',deleteOpen:false,draft:{id:'',name:'',category:'',description:'',pipeline:'',revision:'',profile:'',minutes:30,slots:4,enabled:true,stub:false,
+      schema:J([SF,{key:'data_type',type:'select',label:'Tipo de dado',required:true,options:['WES','WGS'],default:'WES'},OUT])},preview:{}});
+
+    if(s.draft){const d=s.draft,sc=parseSchema(d.schema);
+      out.draft=d;out.editorTitle=d._orig?d.name||'Sem nome':'Nova análise';out.canDelete=!!d._orig;
+      const onD={};['name','id','category','description','pipeline','revision','profile','minutes','slots','schema'].forEach(k=>onD[k]=e=>this.setDraft(k,e.target.value));
+      onD.enabled=e=>this.setDraft('enabled',e.target.checked);onD.stub=e=>this.setDraft('stub',e.target.checked);out.onDraft=onD;
+      const dup=s.analyses.some(x=>x.id===d.id&&x.id!==d._orig);
+      const problems=[!d.name.trim()&&'nome',!d.id.trim()&&'identificador',dup&&'identificador já existe',!d.pipeline.trim()&&'pipeline',!sc.ok&&'schema inválido',sc.ok&&!sc.fields.some(f=>f.type==='samples')&&'samplesheet (use o botão Samplesheet)',!(+d.minutes>0)&&'tempo por amostra'].filter(Boolean);
+      out.saveDisabled=problems.length>0||s.saving;out.saveHint=s.saveError||(problems.length?`Pendente: ${problems.join(', ')}`:'');
+      out.saveDraft=()=>this.saveDraft();out.closeEditor=e=>{e&&e.preventDefault();this.setState({draft:null});};
+      out.askDelete=()=>this.setState({deleteOpen:true});out.closeDelete=()=>this.setState({deleteOpen:false});out.deleteOpen=s.deleteOpen;
+      out.deleteText=`"${d.name}" sai do catálogo. O histórico de execuções é mantido.`;out.deleteDraft=()=>this.deleteDraft();
+      out.schemaInvalid=!sc.ok;out.schemaError=sc.error||'';
+      const nf=sc.fields.filter(f=>f.type!=='samples').length;
+      out.schemaStatus=sc.ok?`Válido · ${nf} campo${nf===1?'':'s'}`:'Inválido';out.schemaTagClass=sc.ok?'tag tag-accent':'tag tag-neutral';
+      out.formatSchema=()=>{if(sc.ok)this.setDraft('schema',JSON.stringify(sc.obj,null,2));};
+      const sfDraft=sc.fields.find(f=>f.type==='samples'),hasSheet=!!(sfDraft&&sfDraft.sheet);
+      out.addFieldBtns=[{label:'Samplesheet',title:hasSheet?'O samplesheet já está no schema. Edite as colunas em sheet.columns.':'Gerado a partir dos FASTQs identificados',disabled:!sc.ok||hasSheet,add:()=>this.addSamplesheet()},
+        ...[['text','Texto'],['number','Número'],['select','Select'],['boolean','Booleano'],['folder','Pasta'],['file','Arquivo']].map(([k,l])=>({label:l,title:'',disabled:!sc.ok,add:()=>this.addField(k)}))];
+      const vals={...defaultsFor(sc.fields,d.id||'analise'),...s.preview};
+      out.previewFields=buildFields(sc.fields,vals,(k,val)=>this.setState(st=>({preview:{...st.preview,[k]:val}})));
+      const psf=sc.fields.find(f=>f.type==='samples');
+      out.previewSamples=psf?{label:psf.label||'Amostras',text:`${(psf.sources||['local']).map(x=>x==='local'?'Pasta local':'BaseSpace').join(' ou ')} · ${psf.pattern||'*.fastq.gz'}`,
+        sheet:`Samplesheet gerado com as colunas ${Object.keys((psf.sheet&&psf.sheet.columns)||SHEET.columns).join(', ')}, enviado à pipeline em --${psf.key}.`}:null;
+    }
+
+    out.onBrandName=e=>this.saveBrand({name:e.target.value});
+    out.onAccent=e=>this.saveBrand({accent:e.target.value});
+    out.onLogo=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;
+      if(f.size>MAX_LOGO_BYTES){this.setState({adminError:'A logo pode ter no máximo 2 MB.'});return;}
+      const rd=new FileReader();rd.onload=()=>this.saveBrand({logo:rd.result},true);rd.readAsDataURL(f);};
+    out.removeLogo=()=>this.saveBrand({logo:''},true);
+    out.swatches=SWATCHES.map(h=>({hex:h,ring:(s.brand.accent||'').toLowerCase()===h?'0 0 0 2px var(--color-bg), 0 0 0 3px '+h:'none',pick:()=>this.saveBrand({accent:h},true)}));
+
+    const c=s.conn,cf=(k,label,type,placeholder)=>({label,type:type||'text',placeholder:placeholder||'',value:c[k]==null?'':c[k],onChange:e=>this.saveConn({[k]:e.target.value})});
+    const grp=(k,title,icon,help,fields,testLabel,actions,saved)=>{const res=s.connTest[k]||saved||null,pending=!!(res&&res.pending);
+      return {title,icon,help,fields,actions:actions||[],testLabel:pending?'Verificando…':testLabel,testing:pending,test:()=>this.testConn(k),
+        hasStatus:!!res&&!pending,status:res&&res.ok?res.text:'Com problema',statusClass:res&&res.ok?'tag tag-accent':'tag tag-neutral',statusIcon:res&&res.ok?'ph ph-check-circle':'ph ph-warning',
+        hasDetail:!!res&&!pending&&!res.ok,detail:res&&res.text||''};};
+    out.connGroups=[
+      grp('nextflow','Execução local','ph ph-terminal-window','As pipelines rodam nesta máquina. O limite define quantas execuções do Nextflow acontecem ao mesmo tempo.',
+        [cf('nextflowPath','Caminho do Nextflow','text','nextflow'),cf('javaHome','JAVA_HOME (opcional)','text','/caminho/para/java'),cf('workDir','Pasta de trabalho (opcional)','text','data/runs'),cf('maxConcurrent','Execuções simultâneas','number')],'Testar Nextflow'),
+      grp('seqera','Seqera Platform','ph ph-chart-line-up','Com um token salvo, cada execução recebe a configuração do Seqera por -c e devolve o link de acompanhamento.',
+        [cf('seqeraApi','URL da API','text','https://api.cloud.seqera.io'),cf('seqeraWorkspaceId','ID do workspace (opcional)','text','123456789'),
+          {label:'Token de acesso',type:'password',placeholder:c.hasSeqeraToken?'Token salvo. Digite para substituir':'Cole o token aqui',value:s.seqeraToken,onChange:e=>this.setState({seqeraToken:e.target.value})}],'Testar conexão',
+        [{label:'Salvar token',run:()=>this.saveToken(),disabled:!s.seqeraToken.trim()},...(c.hasSeqeraToken?[{label:'Remover token',run:()=>this.clearToken(),disabled:false}]:[])]),
+      grp('basespace','Illumina BaseSpace','ph ph-cloud','Requer a CLI bs instalada e autenticada nesta máquina (bs auth). A verificação roda bs whoami.',
+        [cf('bsPath','Caminho da CLI bs','text','bs')],'Verificar funcionamento',[],c.bsCheck)];
+    return out;
+  }
+}
+</script>
+</body>
+</html>

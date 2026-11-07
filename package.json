@@ -1,0 +1,15 @@
+{
+  "name": "plataforma-pipelines",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plataforma white label para disparar pipelines Nextflow de bioinformática na máquina local.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/*.test.js"
+  }
+}
