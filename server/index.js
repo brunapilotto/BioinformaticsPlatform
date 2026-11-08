@@ -9,7 +9,7 @@ import { testBaseSpace, testNextflow, testSeqera } from './connections.js';
 import { ACTIVE_STATES, Store } from './db.js';
 import { groupFastqFiles, scanFolder } from './fastq.js';
 import { buildJobs, resolveParams } from './jobs.js';
-import { RESUMABLE_STATES, Runner, runState } from './runner.js';
+import { logName, RESUMABLE_STATES, Runner, runState } from './runner.js';
 import { normalizeAnalysis, parseSchema } from './schema.js';
 import { mergeBrand, mergeConnections, publicConnections } from './settings.js';
 
@@ -114,18 +114,20 @@ export function createApp({ dataDir = process.env.PLATAFORMA_DATA || join(ROOT, 
     const jobs = store.jobsForRun(run.id);
     return {
       ...run,
+      kind: run.kind ?? 'nextflow',
       state: runState(jobs),
       ahead,
       jobs: jobs.map((j) => ({
         id: j.id, seq: j.seq, label: j.label, state: j.state, url: j.url, message: j.message, startedAt: j.startedAt, finishedAt: j.finishedAt,
         command: j.command,
         dir: j.dir,
-        workDir: j.dir ? join(j.dir, 'work') : null,
+        workDir: j.dir && j.payload.kind !== 'command' ? join(j.dir, 'work') : null,
+        log: j.dir ? join(j.dir, logName(j)) : null,
         attempts: j.attempts,
         canResume: RESUMABLE_STATES.includes(j.state),
         estimatedMinutes: j.payload.estimated_minutes,
         // Os valores que a pipeline recebe no params.json: o samplesheet só existe depois que o job começa.
-        params: { ...j.payload.params, ...(j.dir ? { [j.payload.input_param]: join(j.dir, 'samplesheet.csv') } : {}) },
+        params: { ...j.payload.params, ...(j.dir && j.payload.input_param ? { [j.payload.input_param]: join(j.dir, 'samplesheet.csv') } : {}) },
       })),
     };
   }
@@ -143,14 +145,19 @@ export function createApp({ dataDir = process.env.PLATAFORMA_DATA || join(ROOT, 
   function analysisAndSchema(id) {
     const analysis = store.getAnalysis(id);
     if (!analysis) throw new HttpError(404, 'Análise não encontrada.');
-    const schema = parseSchema(analysis.schema);
+    const schema = parseSchema(analysis.schema, { kind: analysis.kind });
     if (!schema.ok) throw new HttpError(400, `Schema da análise inválido: ${schema.error}`);
     return { analysis, schema };
   }
 
+  function samplesFieldOf(analysisId) {
+    const { schema } = analysisAndSchema(analysisId);
+    if (!schema.samplesField) throw new HttpError(400, 'Esta análise não usa amostras.');
+    return schema.samplesField;
+  }
+
   async function basespaceScan(body) {
-    const { schema } = analysisAndSchema(body.analysisId);
-    const { pattern, paired } = schema.samplesField;
+    const { pattern, paired } = samplesFieldOf(body.analysisId);
     const conn = store.getConnections();
     let projectId = body.projectId ? String(body.projectId) : null;
     let projectName = body.projectName ? String(body.projectName) : null;
@@ -170,6 +177,12 @@ export function createApp({ dataDir = process.env.PLATAFORMA_DATA || join(ROOT, 
     const sf = schema.samplesField;
     const { params, errors } = resolveParams(schema.fields, body.params, analysis.id);
     if (errors.length) throw new HttpError(400, `Revise os parâmetros: ${errors.join('; ')}.`);
+    // Comando sem campo de amostras: roda uma vez, só com os parâmetros.
+    if (!sf) {
+      if (body.source?.type !== 'none') throw new HttpError(400, 'Esta análise não usa amostras.');
+      return { analysis, schema, params, samples: [], source: { type: 'none' }, mode: 'single' };
+    }
+    if (body.source?.type === 'none') throw new HttpError(400, 'Selecione as amostras.');
     if (body.mode !== 'parallel' && body.mode !== 'sequential') throw new HttpError(400, 'Escolha como executar as amostras.');
     if (!Array.isArray(body.sampleIds) || !body.sampleIds.length) throw new HttpError(400, 'Selecione ao menos uma amostra.');
 
@@ -200,7 +213,7 @@ export function createApp({ dataDir = process.env.PLATAFORMA_DATA || join(ROOT, 
     if (missing.length) throw new HttpError(409, `Amostras não encontradas: ${missing.join(', ')}. Identifique os FASTQs novamente.`);
     const invalid = samples.filter((s) => s.invalid);
     if (invalid.length) throw new HttpError(409, `Amostras com arquivos faltando: ${invalid.map((s) => s.name).join(', ')}.`);
-    return { analysis, schema, params, samples, source };
+    return { analysis, schema, params, samples, source, mode: body.mode };
   }
 
   const routes = {
@@ -255,16 +268,15 @@ export function createApp({ dataDir = process.env.PLATAFORMA_DATA || join(ROOT, 
       return { path, parent: dirname(path) === path ? null : dirname(path), dirs, fastqs };
     },
     'POST /api/scan': async ({ body }) => {
-      const { schema } = analysisAndSchema(body.analysisId);
+      const { pattern, paired } = samplesFieldOf(body.analysisId);
       const path = String(body.path ?? '').trim();
       if (!isAbsolute(path)) throw new HttpError(400, 'Informe o caminho completo da pasta.');
-      const { pattern, paired } = schema.samplesField;
       return scanFolder(path, { pattern, paired });
     },
     'POST /api/basespace/scan': async ({ body }) => basespaceScan(body),
     'POST /api/runs/preview': async ({ body }) => {
-      const { analysis, schema, params, samples, source } = await resolveDispatch(body);
-      const { jobs } = buildJobs({ runId: body.runId || 'run-preview', analysis, fields: schema.fields, source, samples, params, mode: body.mode });
+      const { analysis, schema, params, samples, source, mode } = await resolveDispatch(body);
+      const { jobs } = buildJobs({ runId: body.runId || 'run-preview', analysis, fields: schema.fields, source, samples, params, mode });
       return { jobs: jobs.map((j) => j.payload) };
     },
     'GET /api/runs': async ({ query }) => ({ runs: runViews(Math.min(Number(query.get('limit')) || 50, 500)) }),
@@ -272,7 +284,7 @@ export function createApp({ dataDir = process.env.PLATAFORMA_DATA || join(ROOT, 
       if (!RUN_ID_RE.test(String(body.runId))) throw new HttpError(400, 'Identificador de execução inválido.');
       const existing = store.getRun(body.runId);
       if (existing) return runView(existing);
-      const { analysis, schema, params, samples, source } = await resolveDispatch(body);
+      const { analysis, schema, params, samples, source, mode } = await resolveDispatch(body);
       if (params.outdir && !REMOTE_PATH_RE.test(params.outdir)) {
         if (!isAbsolute(params.outdir)) throw new HttpError(400, 'A pasta de resultados precisa ser um caminho completo.');
         try {
@@ -281,7 +293,7 @@ export function createApp({ dataDir = process.env.PLATAFORMA_DATA || join(ROOT, 
           throw new HttpError(400, `Não foi possível criar a pasta de resultados (${params.outdir}): ${err.code || err.message}`);
         }
       }
-      const { run, jobs } = buildJobs({ runId: body.runId, analysis, fields: schema.fields, source, samples, params, mode: body.mode });
+      const { run, jobs } = buildJobs({ runId: body.runId, analysis, fields: schema.fields, source, samples, params, mode });
       try {
         store.insertRun(run, jobs);
       } catch (err) {

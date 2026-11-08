@@ -3,7 +3,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, ren
 import { isAbsolute, join, resolve } from 'node:path';
 import { downloadFiles } from './basespace.js';
 import { ACTIVE_STATES } from './db.js';
-import { nextflowRunName, samplesheetCsv, shellJoin } from './jobs.js';
+import { nextflowRunName, renderCommand, samplesheetCsv, shellJoin } from './jobs.js';
 
 const POLL_MS = 1000;
 const KILL_GRACE_MS = 60_000;
@@ -12,6 +12,12 @@ const ANSI_RE = /\x1b(?:\[[0-9;]*[A-Za-z]|\([A-Z0-9])/g;
 const MAX_MESSAGE = 1500;
 export const RESUMABLE_STATES = ['failed', 'interrupted', 'cancelled'];
 const INTERRUPTED_MESSAGE = 'A plataforma foi reiniciada durante esta execução e o resultado não pôde ser confirmado. Confira no Seqera ou nos logs da pasta de trabalho.';
+const REMOTE_PATH_RE = /^[a-z][a-z0-9+.-]*:\/\//i;
+const SHELL = '/bin/bash';
+
+const isCommand = (job) => job.payload.kind === 'command';
+export const logName = (job) => (isCommand(job) ? 'comando.out' : 'nextflow.out');
+const scriptPath = (dir) => join(dir, 'comando.sh');
 
 const groovyString = (v) => `'${String(v).replaceAll('\\', '\\\\').replaceAll("'", "\\'").replaceAll('\n', '\\n').replaceAll('\r', '')}'`;
 
@@ -37,9 +43,11 @@ function isProcessAlive(pid) {
 }
 
 // O PID pode ter sido reaproveitado pelo sistema depois de um reinício.
-function isNextflowProcess(pid) {
+// Comandos rodam pelo caminho completo do comando.sh, que identifica o job.
+function isJobProcess(job) {
   try {
-    return execFileSync('ps', ['-o', 'command=', '-p', String(pid)], { encoding: 'utf8' }).includes('nextflow');
+    return execFileSync('ps', ['-o', 'command=', '-p', String(job.pid)], { encoding: 'utf8' })
+      .includes(isCommand(job) ? scriptPath(job.dir) : 'nextflow');
   } catch {
     return false;
   }
@@ -86,7 +94,7 @@ export class Runner {
       this.store.updateJob(job.id, { state: 'queued' });
     }
     for (const job of this.store.jobsInState('running')) {
-      if (job.pid && isProcessAlive(job.pid) && isNextflowProcess(job.pid)) {
+      if (job.pid && isProcessAlive(job.pid) && isJobProcess(job)) {
         this.follow(job);
       } else {
         this.removeSeqeraConfig(job.dir);
@@ -149,11 +157,42 @@ export class Runner {
     }
     if (signal.aborted) throw new DOMException('Cancelado', 'AbortError');
 
-    const sheetPath = join(dir, 'samplesheet.csv');
-    writeFileSync(sheetPath, samplesheetCsv(job.payload.sheet_columns, rows));
-    writeFileSync(join(dir, 'params.json'), JSON.stringify({ ...job.payload.params, [job.payload.input_param]: sheetPath }, null, 2));
+    // Sem campo de amostras (comandos só com parâmetros), não há samplesheet.
+    const sheetPath = job.payload.input_param ? join(dir, 'samplesheet.csv') : null;
+    if (sheetPath) writeFileSync(sheetPath, samplesheetCsv(job.payload.sheet_columns, rows));
+    writeFileSync(join(dir, 'params.json'), JSON.stringify({ ...job.payload.params, ...(sheetPath ? { [job.payload.input_param]: sheetPath } : {}) }, null, 2));
     writeFileSync(join(dir, 'job.json'), JSON.stringify(job.payload, null, 2));
 
+    const { file, args, env, notFound } = isCommand(job) ? this.commandProcess(job, dir, rows, sheetPath) : this.nextflowProcess(job, dir, conn);
+
+    // Cada tentativa tem seu log. Se fosse o mesmo arquivo, o link antigo da Seqera seria lido de novo.
+    const name = logName(job);
+    const logPath = join(dir, name);
+    if (job.attempts.length && existsSync(logPath)) renameSync(logPath, join(dir, name.replace(/\.out$/, `.tentativa-${job.attempts.length}.out`)));
+    const log = openSync(logPath, 'a');
+    let child;
+    try {
+      // detached: o processo sobrevive a um reinício da plataforma e pode ser encerrado junto com seus filhos.
+      child = spawn(file, args, { cwd: dir, env, detached: true, stdio: ['ignore', log, log] });
+    } finally {
+      closeSync(log);
+    }
+    child.unref();
+
+    await new Promise((res, rej) => {
+      child.once('spawn', res);
+      child.once('error', (err) => {
+        rej(err.code === 'ENOENT' ? new Error(notFound) : err);
+      });
+    });
+
+    const current = this.store.getJob(job.id);
+    this.store.updateJob(job.id, { state: 'running', pid: child.pid });
+    this.follow({ ...current, dir, pid: child.pid }, { child });
+    if (this.active.get(job.id)?.cancelling) this.signalGroup(child.pid);
+  }
+
+  nextflowProcess(job, dir, conn) {
     const useSeqera = !!conn.seqeraToken;
     if (useSeqera) writeFileSync(join(dir, 'seqera.config'), seqeraConfig(conn), { mode: 0o600 });
 
@@ -164,33 +203,25 @@ export class Runner {
     delete env.NXF_AGENT_MODE;
     delete env.CLAUDECODE;
     if (conn.javaHome) env.JAVA_HOME = conn.javaHome;
+    return {
+      file: conn.nextflowPath,
+      args,
+      env,
+      notFound: `Nextflow não encontrado (${conn.nextflowPath}). Instale o Nextflow ou informe o caminho em Conexões.`,
+    };
+  }
 
-    // Cada tentativa tem seu log. Se fosse o mesmo arquivo, o link antigo da Seqera seria lido de novo.
-    const logPath = join(dir, 'nextflow.out');
-    if (job.attempts.length && existsSync(logPath)) renameSync(logPath, join(dir, `nextflow.tentativa-${job.attempts.length}.out`));
-    const log = openSync(logPath, 'a');
-    let child;
-    try {
-      // detached: o Nextflow sobrevive a um reinício da plataforma e pode ser encerrado junto com seus filhos.
-      child = spawn(conn.nextflowPath, args, { cwd: dir, env, detached: true, stdio: ['ignore', log, log] });
-    } finally {
-      closeSync(log);
+  commandProcess(job, dir, rows, sheetPath) {
+    const { command, params, param_keys: keys, slots } = job.payload;
+    // Diferente do Nextflow, um "cat > {outdir}/..." não cria a pasta. No modo "uma por vez" ela é a subpasta da amostra.
+    if (typeof params.outdir === 'string' && isAbsolute(params.outdir) && !REMOTE_PATH_RE.test(params.outdir)) {
+      mkdirSync(params.outdir, { recursive: true });
     }
-    child.unref();
-
-    await new Promise((res, rej) => {
-      child.once('spawn', res);
-      child.once('error', (err) => {
-        rej(err.code === 'ENOENT'
-          ? new Error(`Nextflow não encontrado (${conn.nextflowPath}). Instale o Nextflow ou informe o caminho em Conexões.`)
-          : err);
-      });
-    });
-
-    const current = this.store.getJob(job.id);
-    this.store.updateJob(job.id, { state: 'running', pid: child.pid });
-    this.follow({ ...current, dir, pid: child.pid }, { child });
-    if (this.active.get(job.id)?.cancelling) this.signalGroup(child.pid);
+    const script = renderCommand({ template: command, params, keys, rows, samplesheet: sheetPath, slots });
+    const path = scriptPath(dir);
+    writeFileSync(path, script);
+    this.store.updateJob(job.id, { command: script });
+    return { file: SHELL, args: [path], env: { ...process.env }, notFound: `Shell não encontrado (${SHELL}).` };
   }
 
   nextflowArgs(job, useSeqera) {
@@ -210,10 +241,11 @@ export class Runner {
   }
 
   follow(job, { child } = {}) {
-    const logPath = join(job.dir, 'nextflow.out');
+    const logPath = join(job.dir, logName(job));
     let offset = 0;
     let carry = '';
-    let foundUrl = !!job.url;
+    // Comandos não têm link da Seqera: o log não precisa ser lido durante a execução.
+    let foundUrl = !!job.url || isCommand(job);
 
     const readNew = () => {
       if (foundUrl || !existsSync(logPath)) return;
@@ -255,8 +287,8 @@ export class Runner {
       child.once('exit', (code) => {
         readNew();
         if (this.store.getJob(job.id).cancelRequested) this.finish(job.id, 'cancelled', null);
-        else if (code === 0) this.finish(job.id, 'succeeded', this.noLinkNote(job.id));
-        else this.finish(job.id, 'failed', lastLines(logPath) || `Nextflow terminou com código ${code}.`);
+        else if (code === 0) this.finish(job.id, 'succeeded', isCommand(job) ? null : this.noLinkNote(job.id));
+        else this.finish(job.id, 'failed', lastLines(logPath) || `${isCommand(job) ? 'Comando' : 'Nextflow'} terminou com código ${code}.`);
       });
     }
     readNew();

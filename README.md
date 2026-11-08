@@ -1,13 +1,13 @@
 # Plataforma de Pipelines
 
-Plataforma white label para disparar pipelines Nextflow de bioinformática na máquina local. O usuário escolhe uma análise, seleciona a pasta ou o projeto do BaseSpace, confirma as amostras identificadas e acompanha a execução pelo link da Seqera.
+Plataforma white label para disparar pipelines Nextflow de bioinformática na máquina local. O usuário escolhe uma análise, seleciona a pasta ou o projeto do BaseSpace, confirma as amostras identificadas e acompanha a execução pelo link da Seqera. Tarefas menores, como juntar FASTQs com `cat` ou rodar um script Python, podem ser cadastradas como [comandos](#comandos).
 
 ## Requisitos
 
 | Item | Para quê | Obrigatório |
 |---|---|---|
 | Node.js 24 ou superior | Rodar a plataforma (sem outras dependências) | Sim |
-| Nextflow e Java compatível | Executar as pipelines | Sim |
+| Nextflow e Java compatível | Executar as pipelines | Para pipelines Nextflow |
 | Token da Seqera | Gerar o link de acompanhamento | Para ter o link |
 | CLI `bs`, autenticada com `bs auth` | Usar projetos do BaseSpace | Para usar BaseSpace |
 | Docker ou similar | Pipelines com perfil de contêiner | Conforme a pipeline |
@@ -69,6 +69,34 @@ O samplesheet gerado tem uma linha por lane e é passado à pipeline no parâmet
 
 **Campo `outdir`:** essa `key` identifica a pasta de resultados. A plataforma cria a pasta no disparo, e no modo "uma por vez" cada amostra usa uma subpasta.
 
+## Comandos
+
+No editor de análises, o **Tipo** "Comando" troca a pipeline por um modelo de comando de shell. Exemplo, para juntar as lanes de cada amostra:
+
+```sh
+cat {r1} > {outdir}/{sample}_R1_001.fastq.gz
+cat {r2} > {outdir}/{sample}_R2_001.fastq.gz
+```
+
+| Placeholder | Vira | Disponível |
+|---|---|---|
+| `{chave}` | O valor do campo do schema com essa `key`, por exemplo `{outdir}` | Sempre |
+| `{sample}` | Nome da amostra | Com campo `samples` |
+| `{r1}`, `{r2}` | Todos os arquivos R1 ou R2 da amostra, de todas as lanes, em ordem e separados por espaço | Com campo `samples` |
+| `{samplesheet}` | Caminho do `samplesheet.csv` do job | Com campo `samples` |
+
+- **Valores com aspas:** todo valor entra com quoting de shell, então espaços e aspas nos caminhos funcionam, e quem dispara não consegue injetar comandos pelo formulário. `${VAR}` é do shell e não é substituído. Um `{nome}` que não está na tabela fica como está, como o `{print}` do awk, e o editor avisa.
+- **Nomes reservados:** em comandos, `sample`, `r1`, `r2` e `samplesheet` não podem ser `key` de campo.
+- **Como roda:** a plataforma grava `comando.sh` na pasta do job e o executa com `/bin/bash`, com `set -eo pipefail`, ou seja, ele para no primeiro erro. O `params.json`, com todos os parâmetros, também fica na pasta, para scripts que preferem lê-lo. A saída vai para `comando.out`.
+- **Com `{sample}`, `{r1}` ou `{r2}`:** o comando se repete para cada amostra. No modo "todas ao mesmo tempo", até "Amostras em paralelo" amostras rodam de uma vez, e a falha de uma não interrompe as outras. A mensagem de erro indica qual amostra falhou.
+- **Sem esses placeholders**, como em `python3 /scripts/qc.py --samplesheet {samplesheet} --out {outdir}`, o comando roda uma vez por job: uma vez por amostra no modo "uma por vez", ou uma vez com todas as amostras no samplesheet.
+- **Sem campo `samples` no schema:** o disparo pula a etapa de amostras e o comando roda uma vez só, com os parâmetros. O "tempo médio" passa a ser por execução.
+- **Pasta de resultados:** a plataforma cria o `outdir` antes de rodar o comando. No modo "uma por vez", ele já aponta para a subpasta da amostra.
+- **Ambiente:** o comando herda o `PATH` de quem iniciou a plataforma. Para `python`, `conda` e outras ferramentas, prefira caminhos completos ou algo como `conda run -n qc python ...`.
+- **Executar novamente:** substitui o "Retomar (-resume)". O comando roda de novo, do início, na mesma pasta do job, e o log anterior fica em `comando.tentativa-<n>.out`.
+- **Sem link da Seqera:** o acompanhamento é pelo status e pelo log.
+- **Segurança:** o comando roda com o usuário do sistema que iniciou a plataforma. Quem acessa o Admin já podia apontar para qualquer pipeline, então o nível de confiança é o mesmo.
+
 ## Como a execução funciona
 
 Cada disparo gera um ou mais jobs, guardados em uma fila no SQLite. Cada job executa:
@@ -87,7 +115,7 @@ nextflow run <pipeline> [-r <revisão>] [-profile <perfil>] [-stub] \
 - **Limite global:** "Execuções simultâneas" em Conexões controla quantos Nextflow rodam juntos. O padrão é 1, e os demais disparos aguardam na fila.
 - **Falhas:** no modo "uma por vez", a falha de uma amostra não interrompe as seguintes.
 - **Reinício da plataforma:** a fila continua e o Nextflow em andamento segue rodando. Se ele terminar com a plataforma desligada, o job fica como "Interrompida", porque o código de saída se perde. Confira o resultado no Seqera ou nos logs.
-- **Arquivos de cada job:** `data/runs/<execução>/<job>/` (ou a pasta de trabalho configurada) guarda `job.json`, `samplesheet.csv`, `params.json`, `nextflow.out` e a pasta `work` do Nextflow.
+- **Arquivos de cada job:** `data/runs/<execução>/<job>/` (ou a pasta de trabalho configurada) guarda `job.json`, `samplesheet.csv`, `params.json`, `nextflow.out` e a pasta `work` do Nextflow. Nos comandos, `nextflow.out` e `work` dão lugar a `comando.sh` e `comando.out`.
 - **BaseSpace:** só as amostras selecionadas são baixadas, para `data/basespace/<projeto>/`. Arquivos já baixados com o tamanho certo são reaproveitados. Essas pastas não são limpas automaticamente.
 
 ## Histórico e informações da execução
@@ -130,7 +158,7 @@ Para repetir um comando manualmente, rode-o na pasta do job. Como o `seqera.conf
 npm test
 ```
 
-Os testes usam versões simuladas do `nextflow` e do `bs`, então não precisam de instalação nem de credenciais.
+Os testes usam versões simuladas do `nextflow` e do `bs`, então não precisam de instalação nem de credenciais. Os testes de comandos rodam um `bash` real.
 
 Para testar com o Nextflow real sem Docker, cadastre uma análise com a pipeline `examples/stub-pipeline`, **Modo stub** ligado e perfil vazio.
 

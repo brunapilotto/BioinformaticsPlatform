@@ -83,6 +83,13 @@ export const SEED_ANALYSES = [
       { key: 'joint_germline', type: 'boolean', label: 'Genotipagem conjunta', default: false },
     ]),
   },
+  {
+    id: 'juntar-lanes', name: 'Juntar lanes', category: 'Utilitários', kind: 'command',
+    description: 'Concatena os FASTQs de todas as lanes em um R1 e um R2 por amostra.',
+    command: 'cat {r1} > {outdir}/{sample}_R1_001.fastq.gz\ncat {r2} > {outdir}/{sample}_R2_001.fastq.gz',
+    pipeline: '', revision: '', profile: '', minutes: 5, slots: 4, enabled: true, stub: false,
+    schema: schema([samplesField(), outdirField('juntar-lanes')]),
+  },
 ];
 
 export const DEFAULT_BRAND = { name: 'Lab Genômica', logo: '', accent: DEFAULT_ACCENT };

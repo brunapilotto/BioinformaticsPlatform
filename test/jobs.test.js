@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildJobs, etaMinutes, localDate, nextflowRunName, resolveParams, samplesheetCsv, shellJoin } from '../server/jobs.js';
+import { buildJobs, commandPlaceholders, etaMinutes, localDate, nextflowRunName, renderCommand, resolveParams, samplesheetCsv, shellJoin } from '../server/jobs.js';
 import { parseSchema, normalizeAnalysis } from '../server/schema.js';
 import { SEED_ANALYSES } from '../server/seeds.js';
 import { seqeraConfig } from '../server/runner.js';
@@ -112,6 +112,64 @@ test('análise: campos que viram argumentos não podem começar com -', () => {
 
 test('as análises iniciais têm schema válido', () => {
   for (const seed of SEED_ANALYSES) assert.ok(normalizeAnalysis(seed), seed.id);
+});
+
+const rowsOf = (...samples) => samples.flatMap((s) => s.units.map((u) => ({ sample: s.name, lane: u.lane, fastq_1: u.r1, fastq_2: u.r2 })));
+
+test('comando: valores com quoting de shell, ${VAR} e nomes desconhecidos preservados', () => {
+  const script = renderCommand({
+    template: 'echo {nome} {vazio} ${HOME} {print} > {outdir}/x.txt\r',
+    params: { nome: "it's $(rm -rf /); `x`", outdir: '/res com espaço', threads: 2 },
+    keys: ['nome', 'vazio', 'outdir', 'threads'],
+  });
+  assert.ok(script.startsWith('#!/bin/bash\n'));
+  assert.match(script, /set -eo pipefail/);
+  assert.ok(script.includes(`echo 'it'\\''s $(rm -rf /); \`x\`' '' \${HOME} {print} > '/res com espaço'/x.txt\n`), script);
+  assert.ok(!script.includes('\r'));
+});
+
+test('comando por amostra: todas as lanes em ordem e grupos de até slots em paralelo', () => {
+  const rows = rowsOf(sample('A', ['L001', 'L002']), sample('B'), sample('C'));
+  const one = renderCommand({ template: 'cat {r1} > {outdir}/{sample}.fq.gz', params: { outdir: '/r' }, keys: ['outdir'], rows: rows.slice(0, 2), samplesheet: '/j/samplesheet.csv' });
+  assert.ok(one.includes('cat /d/A_L001_R1.fq.gz /d/A_L002_R1.fq.gz > /r/A.fq.gz\n'));
+  assert.ok(!one.includes('wait'), 'uma amostra roda direto');
+
+  const all = renderCommand({ template: 'cat {r2} > {sample}.fq.gz; wc -l {samplesheet}', params: {}, keys: [], rows, samplesheet: '/j/samplesheet.csv', slots: 2 });
+  const lines = all.split('\n');
+  assert.equal(lines.filter((l) => l.startsWith('wait')).length, 3);
+  assert.ok(lines.indexOf('wait $p0 || { falhou=1; echo "Falhou na amostra "A >&2; }') < lines.indexOf('# Amostra C'), 'C só começa depois do grupo de A e B');
+  assert.ok(all.includes('cat /d/C_L001_R2.fq.gz > C.fq.gz; wc -l /j/samplesheet.csv'));
+  assert.ok(all.trimEnd().endsWith('exit $falhou'));
+
+  const sheetOnly = renderCommand({ template: 'python3 qc.py {samplesheet}', rows, samplesheet: '/j/s.csv' });
+  assert.equal(sheetOnly.split('\n').filter((l) => l.startsWith('python3')).length, 1, 'sem placeholder de amostra roda uma vez');
+  assert.deepEqual(commandPlaceholders('cat {r1} ${X} {outdir} {r1}'), { names: ['r1', 'outdir'], perSample: true });
+});
+
+test('comando sem amostras: 1 job só com os parâmetros', () => {
+  const cmd = { ...analysis, kind: 'command', command: 'python3 x.py {ref}', minutes: 7 };
+  const { run, jobs } = buildJobs({ runId: 'run-abc123', analysis: cmd, fields: [{ key: 'ref', type: 'text' }], source: { type: 'none' }, samples: [], params: { ref: 'a' }, mode: 'single' });
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0].payload.mode, 'single');
+  assert.equal(jobs[0].payload.input_param, null);
+  assert.deepEqual(jobs[0].payload.param_keys, ['ref']);
+  assert.equal(jobs[0].payload.command, 'python3 x.py {ref}');
+  assert.ok(!('pipeline' in jobs[0].payload));
+  assert.deepEqual([run.kind, run.n, run.etaMin], ['command', 0, 7]);
+});
+
+test('análise de comando: amostras opcionais, comando obrigatório e keys reservadas', () => {
+  const schemaOf = (...f) => JSON.stringify({ fields: f });
+  const base = { id: 'c', name: 'C', kind: 'command', command: 'echo {x}\r\n', pipeline: 'x/y', revision: '1', stub: true, minutes: 1, slots: 1, schema: schemaOf({ key: 'x', type: 'text' }) };
+  const saved = normalizeAnalysis(base);
+  assert.deepEqual([saved.command, saved.pipeline, saved.revision, saved.stub], ['echo {x}', '', '', false]);
+  assert.equal(normalizeAnalysis({ ...base, schema: schemaOf({ key: 'input', type: 'samples' }) }).kind, 'command');
+  assert.throws(() => normalizeAnalysis({ ...base, command: '  ' }), /comando é obrigatório/);
+  assert.throws(() => normalizeAnalysis({ ...base, kind: 'docker' }), /tipo deve ser/);
+  assert.throws(() => normalizeAnalysis({ ...base, schema: schemaOf({ key: 'sample', type: 'text' }) }), /reservado/);
+  assert.throws(() => normalizeAnalysis({ ...base, schema: schemaOf({ key: 'a', type: 'samples' }, { key: 'b', type: 'samples' }) }), /no máximo um/);
+  assert.throws(() => normalizeAnalysis({ ...base, kind: 'nextflow' }), /exatamente um campo/);
+  assert.equal(normalizeAnalysis({ ...base, kind: 'nextflow', schema: schemaOf({ key: 'input', type: 'samples' }) }).command, '');
 });
 
 test('config da Seqera escapa os valores', () => {

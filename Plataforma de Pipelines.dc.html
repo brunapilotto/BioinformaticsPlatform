@@ -75,8 +75,8 @@ a:hover{color:var(--color-accent-300)}
         <div class="card-title">{{ a.name }}</div>
         <p class="card-body">{{ a.description }}</p>
         <div class="card-meta" style="gap:14px;flex-wrap:wrap">
-          <span style="display:flex;align-items:center;gap:5px"><i class="ph ph-git-branch"></i>{{ a.pipeline }} {{ a.revision }}</span>
-          <span style="display:flex;align-items:center;gap:5px;margin-left:auto"><i class="ph ph-timer"></i>{{ a.perSample }} por amostra</span>
+          <span style="display:flex;align-items:center;gap:5px"><i class="{{ a.refIcon }}"></i>{{ a.refText }}</span>
+          <span style="display:flex;align-items:center;gap:5px;margin-left:auto"><i class="ph ph-timer"></i>{{ a.perSample }} {{ a.perUnit }}</span>
         </div>
       </button>
     </sc-for>
@@ -94,18 +94,20 @@ a:hover{color:var(--color-accent-300)}
     <div class="card-kicker" style="margin-bottom:8px">{{ ra.category }}</div>
     <h2>{{ ra.name }}</h2>
     <div class="card-meta" style="font-size:12px;gap:14px;flex-wrap:wrap">
-      <span style="display:flex;align-items:center;gap:5px"><i class="ph ph-git-branch"></i>{{ ra.pipeline }} {{ ra.revision }}</span>
-      <span style="display:flex;align-items:center;gap:5px"><i class="ph ph-timer"></i>{{ ra.perSample }} por amostra</span>
-      <span style="display:flex;align-items:center;gap:5px"><i class="ph ph-stack"></i>até {{ ra.slots }} em paralelo</span>
+      <span style="display:flex;align-items:center;gap:5px"><i class="{{ ra.refIcon }}"></i>{{ ra.refText }}</span>
+      <span style="display:flex;align-items:center;gap:5px"><i class="ph ph-timer"></i>{{ ra.perSample }} {{ ra.perUnit }}</span>
+      <sc-if value="{{ hasSamplesStep }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:5px"><i class="ph ph-stack"></i>até {{ ra.slots }} em paralelo</span></sc-if>
     </div>
   </div>
 
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:28px">
+    <sc-if value="{{ hasSamplesStep }}" hint-placeholder-val="{{ true }}">
     <div style="display:flex;align-items:center;gap:8px;color:{{ st.c1 }}"><span style="width:22px;height:22px;border-radius:50%;border:1px solid currentColor;display:grid;place-items:center;font-size:11px">1</span><span style="font-size:13px">Amostras</span></div>
     <div style="width:40px;height:1px;background:var(--color-divider)"></div>
-    <div style="display:flex;align-items:center;gap:8px;color:{{ st.c2 }}"><span style="width:22px;height:22px;border-radius:50%;border:1px solid currentColor;display:grid;place-items:center;font-size:11px">2</span><span style="font-size:13px">Parâmetros</span></div>
+    </sc-if>
+    <div style="display:flex;align-items:center;gap:8px;color:{{ st.c2 }}"><span style="width:22px;height:22px;border-radius:50%;border:1px solid currentColor;display:grid;place-items:center;font-size:11px">{{ st.n2 }}</span><span style="font-size:13px">Parâmetros</span></div>
     <div style="width:40px;height:1px;background:var(--color-divider)"></div>
-    <div style="display:flex;align-items:center;gap:8px;color:{{ st.c3 }}"><span style="width:22px;height:22px;border-radius:50%;border:1px solid currentColor;display:grid;place-items:center;font-size:11px">3</span><span style="font-size:13px">Revisão e disparo</span></div>
+    <div style="display:flex;align-items:center;gap:8px;color:{{ st.c3 }}"><span style="width:22px;height:22px;border-radius:50%;border:1px solid currentColor;display:grid;place-items:center;font-size:11px">{{ st.n3 }}</span><span style="font-size:13px">Revisão e disparo</span></div>
   </div>
 
   <sc-if value="{{ step1 }}" hint-placeholder-val="{{ true }}">
@@ -248,6 +250,16 @@ a:hover{color:var(--color-accent-300)}
       </div>
       </sc-for>
     </div>
+    <sc-if value="{{ singleRun }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <h5 style="margin-bottom:0">Execução</h5>
+      <div class="card" style="padding:16px;gap:6px;box-shadow:var(--shadow-sm)">
+        <div style="display:flex;align-items:center;gap:10px"><i class="ph ph-terminal-window" style="font-size:18px;color:var(--color-accent)"></i><span class="card-title" style="font-size:15px">Execução única</span><span style="margin-left:auto;font-size:15px">{{ singleEta }}</span></div>
+        <div class="card-meta" style="font-size:12px">O comando roda 1 vez, com os parâmetros informados. Estimativa definida pelo administrador.</div>
+      </div>
+    </div>
+    </sc-if>
+    <sc-if value="{{ hasSamplesStep }}" hint-placeholder-val="{{ true }}">
     <div style="display:flex;flex-direction:column;gap:12px">
       <h5 style="margin-bottom:0">Como executar as amostras?</h5>
       <button onClick="{{ setModeSeq }}" class="card" style="border:0;text-align:left;cursor:pointer;color:inherit;font:inherit;padding:16px;gap:6px;box-shadow:{{ mode.seqShadow }}">
@@ -260,6 +272,7 @@ a:hover{color:var(--color-accent-300)}
       </button>
       <div class="text-muted" style="font-size:12px;display:flex;gap:6px;align-items:center"><i class="ph ph-timer"></i>Estimativa com base em {{ ra.perSample }} por amostra, definido pelo administrador.</div>
     </div>
+    </sc-if>
   </div>
   <sc-if value="{{ allowPayload }}" hint-placeholder-val="{{ true }}">
   <div style="margin-top:32px;display:flex;flex-direction:column;gap:12px">
@@ -366,8 +379,10 @@ a:hover{color:var(--color-accent-300)}
         </sc-for>
       </div>
       <sc-if value="{{ res.noParams }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="font-size:13px">Nenhum parâmetro informado.</div></sc-if>
+      <sc-if value="{{ res.hasSource }}" hint-placeholder-val="{{ true }}">
       <div class="text-muted" style="font-size:12px;overflow-wrap:anywhere">{{ res.sourceText }}</div>
       <div class="text-muted" style="font-size:12px;overflow-wrap:anywhere">{{ res.samplesText }}</div>
+      </sc-if>
     </div>
 
     <div style="display:flex;flex-direction:column;gap:6px">
@@ -380,12 +395,12 @@ a:hover{color:var(--color-accent-300)}
           <span class="{{ l.stateClass }}">{{ l.stateLabel }}</span>
           <sc-if value="{{ l.hasAttemptText }}" hint-placeholder-val="{{ false }}"><span class="text-muted" style="font-size:12px">{{ l.attemptText }}</span></sc-if>
           <span style="margin-left:auto"></span>
-          <sc-if value="{{ l.canResume }}" hint-placeholder-val="{{ false }}"><button class="btn btn-secondary" onClick="{{ l.resume }}" disabled="{{ l.resuming }}" title="Executa de novo com -resume, reaproveitando as etapas já concluídas"><i class="ph ph-arrow-clockwise"></i>Retomar (-resume)</button></sc-if>
+          <sc-if value="{{ l.canResume }}" hint-placeholder-val="{{ false }}"><button class="btn btn-secondary" onClick="{{ l.resume }}" disabled="{{ l.resuming }}" title="{{ l.resumeTitle }}"><i class="ph ph-arrow-clockwise"></i>{{ l.resumeLabel }}</button></sc-if>
           <sc-if value="{{ l.hasUrl }}" hint-placeholder-val="{{ true }}"><a class="btn btn-primary" href="{{ l.url }}" target="_blank" rel="noopener">Abrir no Seqera<i class="ph ph-arrow-square-out"></i></a></sc-if>
         </div>
         <sc-if value="{{ l.hasNote }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto">{{ l.note }}</div></sc-if>
         <details open="{{ l.openDefault }}" style="font-size:13px">
-          <summary style="cursor:pointer" class="text-muted">Comando, pastas e link</summary>
+          <summary style="cursor:pointer" class="text-muted">{{ l.detailsTitle }}</summary>
           <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
         <sc-for list="{{ l.rows }}" as="r" hint-placeholder-count="2">
           <div style="display:flex;flex-direction:column;gap:4px">
@@ -407,7 +422,7 @@ a:hover{color:var(--color-accent-300)}
             <div style="display:flex;flex-direction:column;gap:4px">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>{{ t.title }}</span><span class="{{ t.stateClass }}">{{ t.stateLabel }}</span></div>
               <sc-if value="{{ t.hasUrl }}" hint-placeholder-val="{{ false }}"><a href="{{ t.url }}" target="_blank" rel="noopener" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">{{ t.url }}</a></sc-if>
-              <sc-if value="{{ t.hasCommand }}" hint-placeholder-val="{{ false }}"><code class="text-muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">{{ t.command }}</code></sc-if>
+              <sc-if value="{{ t.hasCommand }}" hint-placeholder-val="{{ false }}"><code class="text-muted" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere;white-space:pre-wrap">{{ t.command }}</code></sc-if>
               <sc-if value="{{ t.hasMessage }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto">{{ t.message }}</div></sc-if>
             </div>
             </sc-for>
@@ -429,7 +444,7 @@ a:hover{color:var(--color-accent-300)}
     <div class="dialog" role="dialog" aria-modal="true">
       <div class="dialog-title">Cancelar execução?</div>
       <div class="dialog-body" style="display:flex;flex-direction:column;gap:8px">
-        <span>O Nextflow em andamento será encerrado e as amostras na fila não serão executadas.</span>
+        <span>{{ cancelText }}</span>
         <sc-if value="{{ hasCancelError }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;overflow-wrap:anywhere">{{ cancelError }}</span></sc-if>
       </div>
       <div class="dialog-actions">
@@ -504,12 +519,12 @@ a:hover{color:var(--color-accent-300)}
 
     <sc-if value="{{ showAnalysesList }}" hint-placeholder-val="{{ true }}">
       <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
-        <div style="flex:1"><h2>Análises</h2><p class="text-muted" style="margin:0">Pipelines disponíveis no catálogo, seus parâmetros e tempo médio por amostra.</p></div>
+        <div style="flex:1"><h2>Análises</h2><p class="text-muted" style="margin:0">Pipelines e comandos disponíveis no catálogo, seus parâmetros e tempo médio.</p></div>
         <button class="btn btn-primary" onClick="{{ newAnalysis }}"><i class="ph ph-plus"></i>Nova análise</button>
       </div>
       <div style="overflow-x:auto">
         <table class="table" style="min-width:720px">
-          <thead><tr><th>Nome</th><th>Pipeline</th><th>Por amostra</th><th>Paralelo</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Nome</th><th>Pipeline ou comando</th><th>Tempo médio</th><th>Paralelo</th><th>Status</th><th></th></tr></thead>
           <tbody>
             <sc-for list="{{ adminRows }}" as="a" hint-placeholder-count="4">
             <tr>
@@ -535,20 +550,38 @@ a:hover{color:var(--color-accent-300)}
       </div>
       <span class="text-muted" style="font-size:12px;margin-top:-14px">{{ saveHint }}</span>
 
-      <h5 style="margin:8px 0 0">Informações da pipeline</h5>
+      <h5 style="margin:8px 0 0">Informações da análise</h5>
+      <div class="field">
+        <label>Tipo</label>
+        <div class="seg">
+          <label class="seg-opt"><input type="radio" name="kind" checked="{{ kindNf }}" onChange="{{ setKindNf }}"><i class="ph ph-git-branch"></i>Pipeline Nextflow</label>
+          <label class="seg-opt"><input type="radio" name="kind" checked="{{ kindCmd }}" onChange="{{ setKindCmd }}"><i class="ph ph-terminal-window"></i>Comando</label>
+        </div>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px 20px">
         <div class="field"><label>Nome</label><input class="input" value="{{ draft.name }}" onChange="{{ onDraft.name }}"></div>
         <div class="field"><label>Identificador</label><input class="input" value="{{ draft.id }}" onChange="{{ onDraft.id }}" style="font-family:ui-monospace,Menlo,monospace;font-size:13px"></div>
         <div class="field"><label>Categoria</label><input class="input" value="{{ draft.category }}" onChange="{{ onDraft.category }}"></div>
+        <sc-if value="{{ kindNf }}" hint-placeholder-val="{{ true }}">
         <div class="field"><label>Pipeline (repositório)</label><input class="input" value="{{ draft.pipeline }}" onChange="{{ onDraft.pipeline }}" placeholder="nf-core/rnaseq" style="font-family:ui-monospace,Menlo,monospace;font-size:13px"></div>
         <div class="field"><label>Revisão (opcional)</label><input class="input" value="{{ draft.revision }}" onChange="{{ onDraft.revision }}" placeholder="3.4.2" style="font-family:ui-monospace,Menlo,monospace;font-size:13px"></div>
         <div class="field"><label>Perfil Nextflow (opcional)</label><input class="input" value="{{ draft.profile }}" onChange="{{ onDraft.profile }}" placeholder="docker" style="font-family:ui-monospace,Menlo,monospace;font-size:13px"></div>
-        <div class="field"><label>Tempo médio por amostra (min)</label><input class="input" type="number" min="1" value="{{ draft.minutes }}" onChange="{{ onDraft.minutes }}"></div>
-        <div class="field"><label>Amostras em paralelo</label><input class="input" type="number" min="1" value="{{ draft.slots }}" onChange="{{ onDraft.slots }}"></div>
+        </sc-if>
+        <div class="field"><label>{{ minutesLabel }}</label><input class="input" type="number" min="1" value="{{ draft.minutes }}" onChange="{{ onDraft.minutes }}"></div>
+        <sc-if value="{{ draftUsesSamples }}" hint-placeholder-val="{{ true }}"><div class="field"><label>Amostras em paralelo</label><input class="input" type="number" min="1" value="{{ draft.slots }}" onChange="{{ onDraft.slots }}"></div></sc-if>
         <div class="field" style="grid-column:1 / -1"><label>Descrição</label><input class="input" value="{{ draft.description }}" onChange="{{ onDraft.description }}"></div>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px"><input type="checkbox" checked="{{ draft.enabled }}" onChange="{{ onDraft.enabled }}" style="width:16px;height:16px;accent-color:var(--color-accent);margin:0">Visível no catálogo</label>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px"><input type="checkbox" checked="{{ draft.stub }}" onChange="{{ onDraft.stub }}" style="width:16px;height:16px;accent-color:var(--color-accent);margin:0">Modo stub (-stub, para testes)</label>
+        <sc-if value="{{ kindNf }}" hint-placeholder-val="{{ true }}"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px"><input type="checkbox" checked="{{ draft.stub }}" onChange="{{ onDraft.stub }}" style="width:16px;height:16px;accent-color:var(--color-accent);margin:0">Modo stub (-stub, para testes)</label></sc-if>
       </div>
+
+      <sc-if value="{{ kindCmd }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <h5 style="margin:12px 0 0">Comando</h5>
+        <textarea class="input" spellcheck="false" value="{{ draft.command }}" onChange="{{ onDraft.command }}" placeholder="cat {r1} > {outdir}/{sample}_R1_001.fastq.gz" style="min-height:140px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.5;white-space:pre;tab-size:2"></textarea>
+        <div class="text-muted" style="font-size:12px;line-height:1.6">Disponíveis neste schema: <code>{{ cmdAvail }}</code>. Os valores entram com aspas de shell. <code>{r1}</code> e <code>{r2}</code> trazem todos os arquivos da amostra, de todas as lanes, em ordem. Com <code>{sample}</code>, <code>{r1}</code> ou <code>{r2}</code>, o comando se repete para cada amostra e, no modo "todas ao mesmo tempo", roda até "Amostras em paralelo" de uma vez. Sem campo <code>samples</code> no schema, o comando roda uma vez só, com os parâmetros. Ele roda com bash na pasta do job, onde também ficam o <code>params.json</code> e o <code>samplesheet.csv</code>, e para no primeiro erro.</div>
+        <sc-if value="{{ hasCmdUnknown }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:6px;font-size:12px;overflow-wrap:anywhere"><i class="ph ph-warning" style="color:var(--color-accent);margin-top:2px"></i><span>{{ cmdUnknownText }}</span></div></sc-if>
+      </div>
+      </sc-if>
 
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:28px;margin-top:12px;align-items:start">
         <div style="display:flex;flex-direction:column;gap:10px">
@@ -564,7 +597,7 @@ a:hover{color:var(--color-accent-300)}
               <button class="tag tag-outline" onClick="{{ b.add }}" disabled="{{ b.disabled }}" title="{{ b.title }}" style="background:transparent;cursor:pointer;font-family:inherit" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">{{ b.label }}</button>
             </sc-for>
           </div>
-          <div class="text-muted" style="font-size:12px;line-height:1.6">Tipos: <code>samples</code>, <code>folder</code>, <code>file</code>, <code>select</code>, <code>genome</code>, <code>text</code>, <code>number</code>, <code>boolean</code>. Propriedades: <code>key</code>, <code>type</code>, <code>label</code>, <code>help</code>, <code>required</code>, <code>default</code>, <code>options</code>. Em <code>samples</code>: <code>sources</code> (local, basespace), <code>pattern</code>, <code>paired</code> (false aceita single-end) e <code>sheet.columns</code> (colunas do samplesheet, com <code>{sample}</code>, <code>{lane}</code>, <code>{r1}</code>, <code>{r2}</code>). Em <code>default</code>, <code>{date}</code> vira a data do disparo. O campo <code>outdir</code> é a pasta de resultados: no modo "uma por vez", cada amostra usa uma subpasta.</div>
+          <div class="text-muted" style="font-size:12px;line-height:1.6">Tipos: <code>samples</code>, <code>folder</code>, <code>file</code>, <code>select</code>, <code>genome</code>, <code>text</code>, <code>number</code>, <code>boolean</code>. Propriedades: <code>key</code>, <code>type</code>, <code>label</code>, <code>help</code>, <code>required</code>, <code>default</code>, <code>options</code>. Em <code>samples</code>: <code>sources</code> (local, basespace), <code>pattern</code>, <code>paired</code> (false aceita single-end) e <code>sheet.columns</code> (colunas do samplesheet, com <code>{sample}</code>, <code>{lane}</code>, <code>{r1}</code>, <code>{r2}</code>). Em <code>default</code>, <code>{date}</code> vira a data do disparo. O campo <code>outdir</code> é a pasta de resultados: no modo "uma por vez", cada amostra usa uma subpasta. Em comandos, o campo <code>samples</code> é opcional.</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:14px">
           <h5 style="margin:0">Pré-visualização do formulário</h5>
@@ -707,6 +740,10 @@ const STATE_LABEL={queued:'Na fila',downloading:'Baixando do BaseSpace',running:
 const STATE_CLASS={queued:'tag-st-queued',downloading:'tag-st-running',running:'tag-st-running',succeeded:'tag-st-success',failed:'tag-st-failed',cancelled:'tag-neutral',interrupted:'tag-st-interrupted'};
 const stateClass=st=>`tag ${STATE_CLASS[st]||'tag-neutral'}`;
 const ACTIVE=['queued','downloading','running'];
+const CMD_RESERVED=['sample','r1','r2','samplesheet'];
+// Mesmo padrão do servidor: ${VAR} é do shell e não conta como placeholder.
+const PH_RE=/(?<!\$)\{([A-Za-z][A-Za-z0-9_.-]*)\}/g;
+const isCmd=a=>!!a&&a.kind==='command';
 
 function parseSchema(text){
   try{const o=JSON.parse(text);const f=Array.isArray(o)?o:o&&o.fields;
@@ -731,6 +768,13 @@ function buildFields(fields,values,onSet,onBrowse){
       onChange:e=>onSet(f.key,t==='number'&&e.target.value!==''?Number(e.target.value):e.target.value),
       onToggle:e=>onSet(f.key,e.target.checked)};});
 }
+
+// Pipelines sempre recebem amostras. Comandos só quando o schema tem o campo samples.
+const usesSamples=a=>!isCmd(a)||parseSchema(a.schema||'{}').fields.some(f=>f.type==='samples');
+function analysisRef(a){const cmd=isCmd(a),line=cmd?(String(a.command||'').split('\n').find(l=>l.trim())||'').trim():'';
+  return {refIcon:cmd?'ph ph-terminal-window':'ph ph-git-branch',refText:cmd?'Comando':`${a.pipeline||''} ${a.revision||''}`.trim(),
+    pipelineRef:cmd?`Comando · ${line.length>48?line.slice(0,47)+'…':line}`:(a.revision?`${a.pipeline}@${a.revision}`:a.pipeline),
+    perUnit:usesSamples(a)?'por amostra':'por execução'};}
 
 const etaFor=(a,n,mode)=>{const per=+a.minutes||0,slots=Math.max(1,+a.slots||1);return mode==='parallel'?per*Math.ceil(n/slots):per*n;};
 
@@ -762,9 +806,10 @@ class Component extends DCLogic {
   setRun(p){this.setState(st=>({run:{...st.run,...(typeof p==='function'?p(st.run):p)}}));}
   go(view){return e=>{if(e&&e.preventDefault)e.preventDefault();this.setState({view});if(view==='result'||view==='history')this.refreshRuns();};}
 
-  startRun(a){const sc=parseSchema(a.schema),sf=sc.fields.find(f=>f.type==='samples')||{};
-    this.setState({view:'run',picker:null,run:{analysisId:a.id,runId:'run-'+uid(),step:1,source:(sf.sources&&sf.sources[0])||'local',path:'',bsQuery:'',bsProject:'',bsProjectName:'',bsMatches:[],
-      scanning:false,scanned:false,scanError:'',warnings:[],samples:[],params:defaultsFor(sc.fields,a.id),mode:null,showPayload:false,msgIdx:0,previewJobs:[],confirm:false,sending:false,sendError:''}});}
+  startRun(a){const sc=parseSchema(a.schema),sf=sc.fields.find(f=>f.type==='samples')||{},ws=usesSamples(a);
+    // Sem amostras, o disparo começa nos parâmetros e roda uma vez só.
+    this.setState({view:'run',picker:null,run:{analysisId:a.id,runId:'run-'+uid(),step:ws?1:2,source:ws?((sf.sources&&sf.sources[0])||'local'):'none',path:'',bsQuery:'',bsProject:'',bsProjectName:'',bsMatches:[],
+      scanning:false,scanned:false,scanError:'',warnings:[],samples:[],params:defaultsFor(sc.fields,a.id),mode:ws?null:'single',showPayload:false,msgIdx:0,previewJobs:[],confirm:false,sending:false,sendError:''}});}
 
   resetScan(extra){this._scanSeq=(this._scanSeq||0)+1;this.setRun({scanning:false,scanned:false,scanError:'',warnings:[],samples:[],...extra});}
 
@@ -782,7 +827,7 @@ class Component extends DCLogic {
 
   dispatchBody(r){const sel=r.samples.filter(x=>x.selected);
     return {runId:r.runId,analysisId:r.analysisId,mode:r.mode,params:r.params,sampleIds:sel.map(x=>x.id),
-      source:r.source==='local'?{type:'local',path:r.path}:{type:'basespace',projectId:r.bsProject,projectName:r.bsProjectName}};}
+      source:r.source==='none'?{type:'none'}:r.source==='local'?{type:'local',path:r.path}:{type:'basespace',projectId:r.bsProject,projectName:r.bsProjectName}};}
 
   async loadPreview(){const r=this.state.run;if(!this.props.showPayloadToUser||!r||!r.mode)return;
     try{const d=await api('/api/runs/preview','POST',this.dispatchBody(r));this.setRun({previewJobs:d.jobs,msgIdx:0});}
@@ -889,8 +934,8 @@ class Component extends DCLogic {
       spinner:React.createElement('span',{style:{width:14,height:14,borderRadius:'50%',border:'2px solid var(--color-neutral-700)',borderTopColor:'var(--color-accent)',animation:'pl-spin .8s linear infinite',display:'inline-block'}})};
 
     const q=s.search.trim().toLowerCase();
-    out.catalog=s.analyses.filter(a=>a.enabled&&(!q||[a.name,a.category,a.pipeline,a.description].join(' ').toLowerCase().includes(q)))
-      .map(a=>({...a,perSample:fmtDur(a.minutes),open:()=>this.startRun(a)}));
+    out.catalog=s.analyses.filter(a=>a.enabled&&(!q||[a.name,a.category,a.pipeline,a.command,a.description].join(' ').toLowerCase().includes(q)))
+      .map(a=>({...a,...analysisRef(a),perSample:fmtDur(a.minutes),open:()=>this.startRun(a)}));
     out.catalogEmpty=out.catalog.length===0;
 
     if(s.run){const r=s.run,a=s.analyses.find(x=>x.id===r.analysisId)||{};const sc=parseSchema(a.schema||'{}');
@@ -900,7 +945,10 @@ class Component extends DCLogic {
       const missing=pf.filter(f=>f.required&&!f.isBool&&String(f.value).trim()==='');
       const done=c=>c<r.step?'var(--color-accent-300)':c===r.step?'var(--color-accent)':muted;
       const bsOk=!!(s.conn.bsCheck&&s.conn.bsCheck.ok),isBs=r.source==='basespace';
-      Object.assign(out,{run:r,ra:{...a,perSample:fmtDur(a.minutes)},st:{c1:done(1),c2:done(2),c3:done(3)},
+      const cmd=isCmd(a),ws=usesSamples(a),firstStep=ws?1:2,unit=cmd?'do comando':'do Nextflow';
+      const perSampleCmd=cmd&&[...String(a.command||'').matchAll(PH_RE)].some(m=>['sample','r1','r2'].includes(m[1]));
+      Object.assign(out,{run:r,ra:{...a,...analysisRef(a),perSample:fmtDur(a.minutes)},st:{c1:done(1),c2:done(2),c3:done(3),n2:ws?2:1,n3:ws?3:2},
+        hasSamplesStep:ws,singleRun:!ws,singleEta:fmtDur(a.minutes),
         step1:r.step===1,step2:r.step===2,step3:r.step===3,notLast:r.step<3,
         srcChoice:sources.includes('local')&&sources.includes('basespace'),srcLocal:r.source==='local',srcBs:isBs,
         setSrcLocal:()=>this.resetScan({source:'local'}),setSrcBs:()=>this.resetScan({source:'basespace'}),
@@ -923,26 +971,31 @@ class Component extends DCLogic {
       const eSeq=etaFor(a,n,'sequential'),ePar=etaFor(a,n,'parallel');
       const on='0 0 0 1px var(--color-accent), 0 0 24px color-mix(in srgb, var(--color-accent) 18%, transparent)';
       out.mode={seqShadow:r.mode==='sequential'?on:'var(--shadow-sm)',parShadow:r.mode==='parallel'?on:'var(--shadow-sm)',
-        seqEta:fmtDur(eSeq),parEta:fmtDur(ePar),seqText:`${n} ${plural(n,'execução','execuções')} do Nextflow, uma após a outra, com um link por amostra`,
-        parText:`1 execução do Nextflow com todas as amostras e um único link. Estimativa com até ${a.slots} em paralelo`};
+        seqEta:fmtDur(eSeq),parEta:fmtDur(ePar),
+        seqText:cmd?`${n} ${plural(n,'execução','execuções')} do comando, uma após a outra`:`${n} ${plural(n,'execução','execuções')} do Nextflow, uma após a outra, com um link por amostra`,
+        parText:!cmd?`1 execução do Nextflow com todas as amostras e um único link. Estimativa com até ${a.slots} em paralelo`
+          :perSampleCmd?`1 execução do comando, com até ${a.slots} ${plural(+a.slots,'amostra','amostras')} ao mesmo tempo`:'1 execução do comando com todas as amostras no samplesheet'};
       out.setModeSeq=()=>this.setMode('sequential');out.setModePar=()=>this.setMode('parallel');
       const srcLabel=r.source==='local'?r.path:`BaseSpace · ${r.bsProjectName}`;
-      out.summary=[{label:'Origem',value:srcLabel},{label:'Amostras',value:`${n} · ${sel.slice(0,3).map(x=>x.name).join(', ')}${n>3?` e mais ${n-3}`:''}`},
+      out.summary=[...(ws?[{label:'Origem',value:srcLabel},{label:'Amostras',value:`${n} · ${sel.slice(0,3).map(x=>x.name).join(', ')}${n>3?` e mais ${n-3}`:''}`}]:[]),
         ...pf.map(f=>({label:f.label,value:f.isBool?(f.checked?'Sim':'Não'):(String(f.value)||'—')}))];
       const jobsPreview=r.previewJobs,i=Math.min(r.msgIdx,Math.max(0,jobsPreview.length-1));
       Object.assign(out,{msgCount:jobsPreview.length,msgJson:jobsPreview.length?JSON.stringify(jobsPreview[i],null,2):'Escolha como executar as amostras.',msgLabel:`Job ${jobsPreview.length?i+1:0} de ${jobsPreview.length}`,
         msgPrevDisabled:i<=0,msgNextDisabled:i>=jobsPreview.length-1,msgPrev:()=>this.setRun({msgIdx:i-1}),msgNext:()=>this.setRun({msgIdx:i+1})});
       out.allowPayload=this.props.showPayloadToUser===true;
       out.payloadIcon=r.showPayload?'ph ph-caret-down':'ph ph-caret-right';out.togglePayload=()=>this.setRun({showPayload:!r.showPayload});
-      out.backLabel=r.step===1?'Cancelar':'Voltar';
-      out.runBack=()=>r.step===1?this.setState({view:'catalog',run:null}):this.setRun({step:r.step-1});
+      out.backLabel=r.step===firstStep?'Cancelar':'Voltar';
+      out.runBack=()=>r.step===firstStep?this.setState({view:'catalog',run:null}):this.setRun({step:r.step-1});
       out.nextDisabled=r.step===1?n===0:missing.length>0;
       out.fireDisabled=!r.mode;
       out.blockHint=r.step===1&&!r.scanned?'Identifique os FASTQs para continuar':r.step===1&&n===0?'Selecione ao menos uma amostra':r.step===2&&missing.length?`Preencha: ${missing.map(f=>f.label).join(', ')}`:r.step===3&&!r.mode?'Escolha como executar as amostras':'';
-      out.runNext=()=>this.setRun({step:r.step+1});
+      out.runNext=()=>{this.setRun({step:r.step+1});if(r.step===2&&r.mode)setTimeout(()=>this.loadPreview());};
       out.openConfirm=()=>this.setRun({confirm:true,sendError:''});out.closeConfirm=()=>this.setRun({confirm:false});
-      out.confirmText=`${n} ${plural(n,'amostra','amostras')} de ${a.name}, ${r.mode==='parallel'?'todas ao mesmo tempo':'uma por vez'}. Tempo estimado: ${fmtDur(r.mode==='parallel'?ePar:eSeq)}.`;
-      out.confirmSub=r.mode==='parallel'?'O Nextflow será executado 1 vez com todas as amostras.':`O Nextflow será executado ${n} ${plural(n,'vez','vezes')}, uma amostra de cada vez.`;
+      const who=cmd?'O comando':'O Nextflow';
+      out.confirmText=!ws?`${a.name}, execução única. Tempo estimado: ${fmtDur(a.minutes)}.`
+        :`${n} ${plural(n,'amostra','amostras')} de ${a.name}, ${r.mode==='parallel'?'todas ao mesmo tempo':'uma por vez'}. Tempo estimado: ${fmtDur(r.mode==='parallel'?ePar:eSeq)}.`;
+      out.confirmSub=!ws?'O comando será executado 1 vez, com os parâmetros informados.'
+        :r.mode==='parallel'?`${who} será executado 1 vez com todas as amostras.`:`${who} será executado ${n} ${plural(n,'vez','vezes')}, uma amostra de cada vez.`;
       out.hasSendError=!!r.sendError;
       out.sendLabel=r.sending?'Enviando…':'Disparar';out.dispatch=()=>this.dispatch();
 
@@ -956,27 +1009,33 @@ class Component extends DCLogic {
     }
 
     const rec=s.runs.find(x=>x.id===s.resultId);
-    if(rec){const active=rec.jobs.some(j=>ACTIVE.includes(j.state)),lastEnd=Math.max(...rec.jobs.map(j=>j.finishedAt||0)),msgs=rec.jobs.length,params=Object.entries(rec.params||{}),fired=s.firedId===rec.id;
+    out.cancelText='O Nextflow em andamento será encerrado e as amostras na fila não serão executadas.';
+    if(rec){const cmd=rec.kind==='command',single=rec.mode==='single';
+      out.cancelText=single?'O comando em andamento será encerrado.':cmd?'O comando em andamento será encerrado e as amostras na fila não serão executadas.':out.cancelText;const active=rec.jobs.some(j=>ACTIVE.includes(j.state)),lastEnd=Math.max(...rec.jobs.map(j=>j.finishedAt||0)),msgs=rec.jobs.length,params=Object.entries(rec.params||{}),fired=s.firedId===rec.id;
       // Uma retomada pode terminar depois da previsão original: conta a partir do início dela.
       const planned=Math.max(rec.createdAt+rec.etaMin*60000,...rec.jobs.filter(j=>ACTIVE.includes(j.state)&&(j.attempts||[]).length).map(j=>(j.startedAt||Date.now())+(j.estimatedMinutes||0)*60000));
       const end=active||!lastEnd?planned:lastEnd;
       const row=(label,value,copyTitle)=>({label,value,copy:()=>this.copy(value),copyTitle,copyIcon:s.copied===value?'ph ph-check':'ph ph-copy'});
       out.res={analysisName:rec.analysisName,stateLabel:STATE_LABEL[rec.state]||rec.state,stateClass:stateClass(rec.state),
         kicker:fired?'Disparo enviado':'Informações da execução',kickerIcon:fired?'ph ph-check-circle':'ph ph-info',
-        line:`${fmtDM(rec.createdAt)} ${fmtHM(rec.createdAt)} · ${rec.n} ${plural(rec.n,'amostra','amostras')} · ${rec.mode==='parallel'?'todas ao mesmo tempo':'uma por vez'} · ${msgs} ${plural(msgs,'execução','execuções')} do Nextflow`,
+        line:single?`${fmtDM(rec.createdAt)} ${fmtHM(rec.createdAt)} · execução única do comando`
+          :`${fmtDM(rec.createdAt)} ${fmtHM(rec.createdAt)} · ${rec.n} ${plural(rec.n,'amostra','amostras')} · ${rec.mode==='parallel'?'todas ao mesmo tempo':'uma por vez'} · ${msgs} ${plural(msgs,'execução','execuções')} ${cmd?'do comando':'do Nextflow'}`,
         hasAhead:rec.ahead>0,aheadText:`${rec.ahead} ${plural(rec.ahead,'execução','execuções')} à frente na fila. A estimativa não inclui essa espera.`,
-        eta:fmtDur(rec.etaMin),etaBasis:rec.mode==='parallel'?`${rec.n} ${plural(rec.n,'amostra','amostras')} em lotes de até ${rec.slots}`:`${rec.n} × ${fmtDur(rec.minutes)} por amostra`,
+        eta:fmtDur(rec.etaMin),etaBasis:single?`${fmtDur(rec.minutes)} por execução`:rec.mode==='parallel'?`${rec.n} ${plural(rec.n,'amostra','amostras')} em lotes de até ${rec.slots}`:`${rec.n} × ${fmtDur(rec.minutes)} por amostra`,
         endLabel:active||!lastEnd?'Término previsto':'Término',end:fmtHM(end),endDate:fmtDM(end),
         canCancel:active,askCancel:()=>this.setState({cancelId:rec.id,cancelError:''}),
         params:params.map(([key,value])=>({key,value:String(value)})),noParams:params.length===0,
-        sourceText:`Origem: ${rec.source.type==='local'?rec.source.path:`BaseSpace · ${rec.source.project_name}`}`,samplesText:`Amostras: ${(rec.sampleNames||[]).join(', ')}`,
+        hasSource:!single,sourceText:`Origem: ${rec.source.type==='local'?rec.source.path:`BaseSpace · ${rec.source.project_name}`}`,samplesText:`Amostras: ${(rec.sampleNames||[]).join(', ')}`,
         jobsTitle:msgs===1?'Execução':`Execuções (${msgs})`,
-        links:rec.jobs.map(j=>{const prior=j.attempts||[],n=prior.length,note=j.message||(j.url?'':j.state==='queued'?'O link aparece quando esta execução começar.':j.state==='downloading'?'Baixando os arquivos do BaseSpace. O link aparece quando o Nextflow começar.':j.state==='running'?(s.conn.hasSeqeraToken?'Aguardando o link do Seqera…':'Sem link: token da Seqera não configurado em Conexões.'):'');
+        links:rec.jobs.map(j=>{const prior=j.attempts||[],n=prior.length,note=j.message||(cmd?({queued:'Aguardando a vez na fila.',downloading:'Baixando os arquivos do BaseSpace. O comando começa em seguida.',running:'Em execução. A saída fica no log, na pasta do job.'}[j.state]||''):j.url?'':j.state==='queued'?'O link aparece quando esta execução começar.':j.state==='downloading'?'Baixando os arquivos do BaseSpace. O link aparece quando o Nextflow começar.':j.state==='running'?(s.conn.hasSeqeraToken?'Aguardando o link do Seqera…':'Sem link: token da Seqera não configurado em Conexões.'):'');
           const own=Object.entries(j.params||{}).filter(([k,val])=>(rec.params||{})[k]!==val).map(([k,val])=>row(k,String(val),`Copiar ${k}`));
-          const rows=[...(j.url?[row('Link da Seqera',j.url,'Copiar link')]:[]),...(j.command?[row(n?'Comando executado (retomada)':'Comando executado',j.command,'Copiar comando')]:[]),
-            ...(j.workDir?[row('Pasta work',j.workDir,'Copiar caminho da pasta work'),row('Pasta do job',j.dir,'Copiar caminho da pasta do job')]:[]),...own];
+          const rows=[...(j.url?[row('Link da Seqera',j.url,'Copiar link')]:[]),...(j.command?[row(n?`Comando executado (${cmd?'nova execução':'retomada'})`:'Comando executado',j.command,'Copiar comando')]:[]),
+            ...(j.workDir?[row('Pasta work',j.workDir,'Copiar caminho da pasta work'),row('Pasta do job',j.dir,'Copiar caminho da pasta do job')]
+              :cmd&&j.dir?[row('Log',j.log,'Copiar caminho do log'),row('Pasta do job',j.dir,'Copiar caminho da pasta do job')]:[]),...own];
           return {label:j.label,url:j.url||'',hasUrl:!!j.url,note,hasNote:!!note,stateLabel:STATE_LABEL[j.state]||j.state,stateClass:stateClass(j.state),rows,
-            noCommand:!j.command,noCommandText:ACTIVE.includes(j.state)?'O comando aparece quando esta execução começar.':'Comando não registrado: esta execução não chegou a iniciar o Nextflow ou é anterior a este registro.',
+            noCommand:!j.command,noCommandText:ACTIVE.includes(j.state)?'O comando aparece quando esta execução começar.':cmd?'Comando não registrado: esta execução não chegou a começar.':'Comando não registrado: esta execução não chegou a iniciar o Nextflow ou é anterior a este registro.',
+            detailsTitle:cmd?'Comando, log e pasta':'Comando, pastas e link',
+            resumeLabel:cmd?'Executar novamente':'Retomar (-resume)',resumeTitle:cmd?'Executa o comando de novo, do início, na mesma pasta do job':'Executa de novo com -resume, reaproveitando as etapas já concluídas',
             openDefault:msgs<=3||['failed','interrupted'].includes(j.state),canResume:j.canResume,resuming:!!s.resuming[j.id],resume:()=>this.resumeJob(j.id),
             hasAttemptText:n>0,attemptText:`Tentativa ${n+1}`,hasAttempts:n>0,attemptsTitle:n===1?'Ver a tentativa anterior':`Ver as ${n} tentativas anteriores`,
             attempts:prior.map(t=>({title:`Tentativa ${t.attempt}${t.startedAt?` · ${fmtDM(t.startedAt)} ${fmtHM(t.startedAt)}`:''}`,stateLabel:STATE_LABEL[t.state]||t.state,stateClass:stateClass(t.state),
@@ -987,7 +1046,7 @@ class Component extends DCLogic {
 
     out.historyEmpty=s.runs.length===0;out.hasHistory=s.runs.length>0;
     out.historyRows=s.runs.map(x=>{const when=`${fmtDM(x.createdAt)} ${fmtHM(x.createdAt)}`,active=x.jobs.some(j=>ACTIVE.includes(j.state));
-      return {analysisName:x.analysisName,n:x.n,when,modeLabel:x.mode==='parallel'?'Todas ao mesmo tempo':'Uma por vez',
+      return {analysisName:x.analysisName,n:x.mode==='single'?'—':x.n,when,modeLabel:x.mode==='single'?'Execução única':x.mode==='parallel'?'Todas ao mesmo tempo':'Uma por vez',
         stateLabel:STATE_LABEL[x.state]||x.state,stateClass:stateClass(x.state),open:()=>{this.setState({view:'result',resultId:x.id,firedId:null,resumeError:''});this.refreshRuns();},
         deleteDisabled:active,deleteTitle:active?'Cancele a execução antes de excluir':'Excluir do histórico',askDelete:()=>this.setState({deleteRunId:x.id,deleteRunError:''})};});
     const delRun=s.runs.find(x=>x.id===s.deleteRunId);
@@ -1000,17 +1059,25 @@ class Component extends DCLogic {
     out.tabAnalyses=()=>this.setState({adminTab:'analyses',draft:null,adminError:''});out.tabBrand=()=>this.setState({adminTab:'brand',adminError:''});out.tabConn=()=>this.setState({adminTab:'conn',adminError:''});
     out.showAnalysesList=on('analyses')&&!s.draft;out.showEditor=on('analyses')&&!!s.draft;out.showBrand=on('brand');out.showConn=on('conn');
     out.hasAdminError=!!s.adminError;out.adminError=s.adminError;
-    out.adminRows=s.analyses.map(a=>({...a,pipelineRef:a.revision?`${a.pipeline}@${a.revision}`:a.pipeline,perSample:fmtDur(a.minutes),status:a.enabled?'Ativa':'Inativa',tagClass:a.enabled?'tag tag-accent':'tag tag-neutral',
+    out.adminRows=s.analyses.map(a=>({...a,...analysisRef(a),perSample:`${fmtDur(a.minutes)} ${usesSamples(a)?'por amostra':'por execução'}`,status:a.enabled?'Ativa':'Inativa',tagClass:a.enabled?'tag tag-accent':'tag tag-neutral',
       toggle:()=>this.toggleAnalysis(a),edit:()=>this.editAnalysis(a)}));
-    out.newAnalysis=()=>this.setState({saveError:'',deleteOpen:false,draft:{id:'',name:'',category:'',description:'',pipeline:'',revision:'',profile:'',minutes:30,slots:4,enabled:true,stub:false,
+    out.newAnalysis=()=>this.setState({saveError:'',deleteOpen:false,draft:{id:'',name:'',category:'',description:'',kind:'nextflow',pipeline:'',revision:'',profile:'',command:'',minutes:30,slots:4,enabled:true,stub:false,
       schema:J([SF,{key:'data_type',type:'select',label:'Tipo de dado',required:true,options:['WES','WGS'],default:'WES'},OUT])},preview:{}});
 
     if(s.draft){const d=s.draft,sc=parseSchema(d.schema);
       out.draft=d;out.editorTitle=d._orig?d.name||'Sem nome':'Nova análise';out.canDelete=!!d._orig;
-      const onD={};['name','id','category','description','pipeline','revision','profile','minutes','slots','schema'].forEach(k=>onD[k]=e=>this.setDraft(k,e.target.value));
+      const onD={};['name','id','category','description','pipeline','revision','profile','command','minutes','slots','schema'].forEach(k=>onD[k]=e=>this.setDraft(k,e.target.value));
       onD.enabled=e=>this.setDraft('enabled',e.target.checked);onD.stub=e=>this.setDraft('stub',e.target.checked);out.onDraft=onD;
-      const dup=s.analyses.some(x=>x.id===d.id&&x.id!==d._orig);
-      const problems=[!d.name.trim()&&'nome',!d.id.trim()&&'identificador',dup&&'identificador já existe',!d.pipeline.trim()&&'pipeline',!sc.ok&&'schema inválido',sc.ok&&!sc.fields.some(f=>f.type==='samples')&&'samplesheet (use o botão Samplesheet)',!(+d.minutes>0)&&'tempo por amostra'].filter(Boolean);
+      const dup=s.analyses.some(x=>x.id===d.id&&x.id!==d._orig),cmd=isCmd(d),hasSamples=sc.fields.some(f=>f.type==='samples');
+      const reserved=cmd?sc.fields.filter(f=>f.type!=='samples'&&CMD_RESERVED.includes(f.key)).map(f=>f.key):[];
+      const problems=[!d.name.trim()&&'nome',!d.id.trim()&&'identificador',dup&&'identificador já existe',!cmd&&!(d.pipeline||'').trim()&&'pipeline',cmd&&!String(d.command||'').trim()&&'comando',
+        !sc.ok&&'schema inválido',!cmd&&sc.ok&&!hasSamples&&'samplesheet (use o botão Samplesheet)',reserved.length&&`key reservada nos comandos (${reserved.join(', ')})`,!(+d.minutes>0)&&'tempo médio'].filter(Boolean);
+      out.kindNf=!cmd;out.kindCmd=cmd;out.setKindNf=()=>this.setDraft('kind','nextflow');out.setKindCmd=()=>this.setDraft('kind','command');
+      out.draftUsesSamples=!cmd||hasSamples;out.minutesLabel=cmd&&!hasSamples?'Tempo médio por execução (min)':'Tempo médio por amostra (min)';
+      const avail=[...sc.fields.filter(f=>f.type!=='samples').map(f=>f.key),...(hasSamples?CMD_RESERVED:[])];
+      const unknown=[...new Set([...String(d.command||'').matchAll(PH_RE)].map(m=>m[1]))].filter(k=>!avail.includes(k));
+      out.cmdAvail=avail.length?avail.map(k=>`{${k}}`).join(' '):'nenhum';out.hasCmdUnknown=cmd&&unknown.length>0;
+      out.cmdUnknownText=`Não ${plural(unknown.length,'reconhecido','reconhecidos')} e ${plural(unknown.length,'mantido','mantidos')} como ${plural(unknown.length,'está','estão')}: ${unknown.map(k=>`{${k}}`).join(', ')}.`;
       out.saveDisabled=problems.length>0||s.saving;out.saveHint=s.saveError||(problems.length?`Pendente: ${problems.join(', ')}`:'');
       out.saveDraft=()=>this.saveDraft();out.closeEditor=e=>{e&&e.preventDefault();this.setState({draft:null});};
       out.askDelete=()=>this.setState({deleteOpen:true});out.closeDelete=()=>this.setState({deleteOpen:false});out.deleteOpen=s.deleteOpen;
@@ -1026,7 +1093,7 @@ class Component extends DCLogic {
       out.previewFields=buildFields(sc.fields,vals,(k,val)=>this.setState(st=>({preview:{...st.preview,[k]:val}})));
       const psf=sc.fields.find(f=>f.type==='samples');
       out.previewSamples=psf?{label:psf.label||'Amostras',text:`${(psf.sources||['local']).map(x=>x==='local'?'Pasta local':'BaseSpace').join(' ou ')} · ${psf.pattern||'*.fastq.gz'}`,
-        sheet:`Samplesheet gerado com as colunas ${Object.keys((psf.sheet&&psf.sheet.columns)||SHEET.columns).join(', ')}, enviado à pipeline em --${psf.key}.`}:null;
+        sheet:`Samplesheet gerado com as colunas ${Object.keys((psf.sheet&&psf.sheet.columns)||SHEET.columns).join(', ')}, ${cmd?'disponível no comando em {samplesheet}':`enviado à pipeline em --${psf.key}`}.`}:null;
     }
 
     out.onBrandName=e=>this.saveBrand({name:e.target.value});
