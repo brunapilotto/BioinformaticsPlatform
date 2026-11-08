@@ -333,3 +333,21 @@ test('reinício: fila continua, processo vivo é retomado, processo morto vira i
   assert.equal(third.store.getRun(res.body.id).id, res.body.id, 'histórico persistido');
   assert.equal((await third.api('GET', '/api/bootstrap')).body.recentPaths.length, 1);
 });
+
+test('plataforma fora do ar quando o Nextflow termina: resultado e link registrados na volta', async (t) => {
+  const { app, dispatch, nf } = await setup(t, { samples: ['AMEDIUM', 'BFAILME'] });
+  const res = await dispatch('sequential', ['AMEDIUM']);
+  const jobId = res.body.jobs[0].id;
+  await waitFor(() => events(nf.eventLog).includes('start AMEDIUM'), { label: 'início' });
+  const { dir: jobDir } = app.store.getJob(jobId);
+  await app.close();
+  await waitFor(() => existsSync(join(jobDir, 'exitcode')), { label: 'fim com a plataforma desligada' });
+
+  const reborn = await startApp(t, { dataDir: app.dir });
+  const job = reborn.store.getJob(jobId);
+  assert.equal(job.state, 'succeeded');
+  assert.equal(job.url, 'https://cloud.seqera.io/orgs/lab/workspaces/prod/watch/AMEDIUMabc', 'link lido do log');
+  assert.equal(job.message, null);
+  assert.ok(job.finishedAt <= Date.now() && job.finishedAt >= job.startedAt);
+  assert.equal(existsSync(join(jobDir, 'seqera.config')), false);
+});

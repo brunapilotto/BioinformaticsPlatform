@@ -414,6 +414,19 @@ a:hover{color:var(--color-accent-300)}
         <sc-if value="{{ l.noCommand }}" hint-placeholder-val="{{ false }}"><div class="text-muted" style="font-size:12px">{{ l.noCommandText }}</div></sc-if>
           </div>
         </details>
+        <sc-if value="{{ l.canLog }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-ghost" onClick="{{ l.toggleLog }}" style="padding-left:0"><i class="{{ l.logIcon }}"></i>{{ l.logLabel }}</button>
+            <span class="text-muted" style="font-size:12px">{{ l.logInfo }}</span>
+          </div>
+          <sc-if value="{{ l.logOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column-reverse;max-height:420px;overflow:auto;background:var(--color-neutral-900);border-radius:var(--radius-md)">
+            <pre style="margin:0;padding:10px 12px;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--color-neutral-300)">{{ l.logText }}</pre>
+          </div>
+          </sc-if>
+        </div>
+        </sc-if>
         <sc-if value="{{ l.hasAttempts }}" hint-placeholder-val="{{ false }}">
         <details style="font-size:13px">
           <summary style="cursor:pointer" class="text-muted">{{ l.attemptsTitle }}</summary>
@@ -780,7 +793,7 @@ const etaFor=(a,n,mode)=>{const per=+a.minutes||0,slots=Math.max(1,+a.slots||1);
 
 class Component extends DCLogic {
   state={ready:false,loadError:'',view:'catalog',adminTab:'analyses',analyses:[],brand:{name:'',logo:'',accent:DEFAULT_ACCENT},conn:{},seqeraToken:'',runs:[],recentPaths:[],
-    search:'',run:null,draft:null,preview:{},resultId:null,copied:'',connTest:{},picker:null,saving:false,saveError:'',adminError:'',deleteOpen:false,cancelId:null,cancelError:'',pollFailed:false,deleteRunId:null,deleteRunError:'',firedId:null,resuming:{},resumeError:''};
+    search:'',run:null,draft:null,preview:{},resultId:null,copied:'',connTest:{},picker:null,saving:false,saveError:'',adminError:'',deleteOpen:false,cancelId:null,cancelError:'',pollFailed:false,logs:{},deleteRunId:null,deleteRunError:'',firedId:null,resuming:{},resumeError:''};
 
   componentDidMount(){this.load();
     this.timer=setInterval(()=>{if(['result','history'].includes(this.state.view))this.refreshRuns();},POLL_MS);}
@@ -791,8 +804,17 @@ class Component extends DCLogic {
       this.setState({ready:true,analyses:d.analyses,brand:d.brand,conn:d.connections,runs:d.runs,recentPaths:d.recentPaths});
     }catch(e){this.setState({loadError:e.message});}}
   async refreshRuns(){
-    try{const d=await api('/api/runs');this.setState({runs:d.runs,pollFailed:false});}
+    try{const d=await api('/api/runs');this.setState({runs:d.runs,pollFailed:false});
+      // Logs abertos acompanham o job enquanto ele roda, e são lidos uma última vez quando ele termina.
+      const rec=this.state.view==='result'&&d.runs.find(x=>x.id===this.state.resultId);
+      if(rec)rec.jobs.forEach(j=>{const lg=this.state.logs[j.id];if(lg&&lg.open&&(ACTIVE.includes(j.state)||lg.state!==j.state))this.loadLog(j.id,j.state);});}
     catch(e){this.setState({pollFailed:true});}}
+  async loadLog(id,state){
+    const put=p=>this.setState(st=>st.logs[id]?{logs:{...st.logs,[id]:{...st.logs[id],...p}}}:{});
+    try{const d=await api(`/api/jobs/${encodeURIComponent(id)}/log`);put({text:d.text,truncated:d.truncated,loaded:true,error:'',state});}
+    catch(e){put({error:e.message});}}
+  toggleLog(id,state){const open=!(this.state.logs[id]&&this.state.logs[id].open);
+    this.setState(st=>({logs:{...st.logs,[id]:{text:'',loaded:false,...st.logs[id],open}}}));if(open)this.loadLog(id,state);}
 
   logoUrl(d){if(!d)return '';if(this._logoSrc===d)return this._logoBlob;
     try{const [h,b]=d.split(',');const mime=(h.match(/data:([^;]+)/)||[])[1]||'image/png';const bin=atob(b);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
@@ -1035,6 +1057,9 @@ class Component extends DCLogic {
           return {label:j.label,url:j.url||'',hasUrl:!!j.url,note,hasNote:!!note,stateLabel:STATE_LABEL[j.state]||j.state,stateClass:stateClass(j.state),rows,
             noCommand:!j.command,noCommandText:ACTIVE.includes(j.state)?'O comando aparece quando esta execução começar.':cmd?'Comando não registrado: esta execução não chegou a começar.':'Comando não registrado: esta execução não chegou a iniciar o Nextflow ou é anterior a este registro.',
             detailsTitle:cmd?'Comando, log e pasta':'Comando, pastas e link',
+            ...(lg=>({canLog:!!j.dir,logOpen:!!lg.open,toggleLog:()=>this.toggleLog(j.id,j.state),logIcon:lg.open?'ph ph-caret-down':'ph ph-caret-right',logLabel:lg.open?'Ocultar log':'Ver log',
+              logText:lg.text||(lg.loaded?'O log ainda está vazio.':'Carregando…'),
+              logInfo:!lg.open?'':lg.error?`Não foi possível ler o log: ${lg.error}`:[lg.truncated?'Últimos 64 KB':'',ACTIVE.includes(j.state)?'Atualiza sozinho enquanto roda':''].filter(Boolean).join(' · ')}))(s.logs[j.id]||{}),
             resumeLabel:cmd?'Executar novamente':'Retomar (-resume)',resumeTitle:cmd?'Executa o comando de novo, do início, na mesma pasta do job':'Executa de novo com -resume, reaproveitando as etapas já concluídas',
             openDefault:msgs<=3||['failed','interrupted'].includes(j.state),canResume:j.canResume,resuming:!!s.resuming[j.id],resume:()=>this.resumeJob(j.id),
             hasAttemptText:n>0,attemptText:`Tentativa ${n+1}`,hasAttempts:n>0,attemptsTitle:n===1?'Ver a tentativa anterior':`Ver as ${n} tentativas anteriores`,

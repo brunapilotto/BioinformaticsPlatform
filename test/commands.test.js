@@ -141,3 +141,37 @@ test('reinício: comando vivo é retomado e reconhecido pelo comando.sh', async 
   process.kill(-pid, 'SIGKILL');
   await waitFor(() => reborn.store.getJob(jobId).state === 'interrupted', { label: 'interrupção' });
 });
+
+test('comando que falha com a plataforma fora do ar vira falha com o log; log legível pela API', async (t) => {
+  const { app, dispatch } = await setup(t, 'echo inicio\nsleep 1\necho "deu erro" >&2\nexit 5');
+  const res = await dispatch('parallel');
+  const jobId = res.body.jobs[0].id;
+  const started = await waitFor(() => {
+    const j = app.store.getJob(jobId);
+    return j.pid ? j : null;
+  }, { label: 'início do comando' });
+  await app.close();
+  await waitFor(() => existsSync(join(started.dir, 'exitcode')), { label: 'fim com a plataforma desligada' });
+  assert.equal(readFileSync(join(started.dir, 'exitcode'), 'utf8').trim(), '5');
+
+  const reborn = await startApp(t, { dataDir: app.dir });
+  const job = reborn.store.getJob(jobId);
+  assert.equal(job.state, 'failed');
+  assert.match(job.message, /deu erro/);
+  const log = await reborn.api('GET', `/api/jobs/${jobId}/log`);
+  assert.equal(log.status, 200);
+  assert.equal(log.body.text, 'inicio\ndeu erro\n');
+  assert.equal(log.body.truncated, false);
+  assert.equal(log.body.path, join(started.dir, 'comando.out'));
+  assert.equal((await reborn.api('GET', '/api/jobs/nao-existe/log')).status, 404);
+});
+
+test('log grande: a API devolve só o final, sem linha cortada', async (t) => {
+  const { app, dispatch, finished } = await setup(t, 'for i in $(seq 1 20000); do echo "linha $i"; done');
+  const run = await finished((await dispatch('parallel')).body.id);
+  const log = await app.api('GET', `/api/jobs/${run.jobs[0].id}/log`);
+  assert.equal(log.body.truncated, true);
+  assert.ok(log.body.text.length <= 64 * 1024);
+  assert.match(log.body.text, /^linha \d+\n/);
+  assert.ok(log.body.text.endsWith('linha 20000\n'));
+});

@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { isAbsolute, join, resolve } from 'node:path';
+import { delimiter, isAbsolute, join, resolve } from 'node:path';
 import { downloadFiles } from './basespace.js';
 import { ACTIVE_STATES } from './db.js';
 import { nextflowRunName, renderCommand, samplesheetCsv, shellJoin } from './jobs.js';
@@ -14,6 +14,16 @@ export const RESUMABLE_STATES = ['failed', 'interrupted', 'cancelled'];
 const INTERRUPTED_MESSAGE = 'A plataforma foi reiniciada durante esta execução e o resultado não pôde ser confirmado. Confira no Seqera ou nos logs da pasta de trabalho.';
 const REMOTE_PATH_RE = /^[a-z][a-z0-9+.-]*:\/\//i;
 const SHELL = '/bin/bash';
+const EXIT_FILE = 'exitcode';
+
+// Grava o código de saída na pasta do job: se a plataforma estiver fora do ar quando o processo
+// terminar, o resultado continua disponível na volta. O trap com handler (e não '') faz o shell
+// esperar o processo encerrar depois de um SIGTERM do cancelamento, e não é herdado por ele.
+const EXIT_WRAPPER = `trap true TERM INT HUP
+"$@"
+code=$?
+echo "$code" > ${EXIT_FILE}.tmp && mv ${EXIT_FILE}.tmp ${EXIT_FILE}
+exit "$code"`;
 
 const isCommand = (job) => job.payload.kind === 'command';
 export const logName = (job) => (isCommand(job) ? 'comando.out' : 'nextflow.out');
@@ -50,6 +60,57 @@ function isJobProcess(job) {
       .includes(isCommand(job) ? scriptPath(job.dir) : 'nextflow');
   } catch {
     return false;
+  }
+}
+
+function readExitCode(dir) {
+  try {
+    const text = readFileSync(join(dir, EXIT_FILE), 'utf8').trim();
+    return /^\d+$/.test(text) ? { code: Number(text), at: statSync(join(dir, EXIT_FILE)).mtimeMs } : null;
+  } catch {
+    return null;
+  }
+}
+
+function findSeqeraUrl(logPath) {
+  try {
+    return SEQERA_URL_RE.exec(readFileSync(logPath, 'utf8').replace(ANSI_RE, ''))?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Com o wrapper, o spawn sempre encontra o shell: a ausência do programa precisa ser conferida antes.
+function findExecutable(file, envPath = '') {
+  const candidates = file.includes('/') ? [file] : envPath.split(delimiter).filter(Boolean).map((d) => join(d, file));
+  return candidates.find((c) => {
+    try {
+      return statSync(c).isFile();
+    } catch {
+      return false;
+    }
+  }) ?? null;
+}
+
+// Final do log para a tela. Lido do disco a cada pedido: funciona com a plataforma reiniciada no meio da execução.
+export function readLogTail(file, maxBytes = 64 * 1024) {
+  let fd;
+  try {
+    fd = openSync(file, 'r');
+  } catch {
+    return { text: '', size: 0, truncated: false };
+  }
+  try {
+    const { size } = statSync(file);
+    const start = Math.max(0, size - maxBytes);
+    const buffer = Buffer.alloc(size - start);
+    readSync(fd, buffer, 0, buffer.length, start);
+    let text = buffer.toString('utf8').replace(ANSI_RE, '');
+    // Começando no meio do arquivo, a primeira linha estaria cortada.
+    if (start > 0) text = text.slice(text.indexOf('\n') + 1);
+    return { text, size, truncated: start > 0 };
+  } finally {
+    closeSync(fd);
   }
 }
 
@@ -96,14 +157,18 @@ export class Runner {
     for (const job of this.store.jobsInState('running')) {
       if (job.pid && isProcessAlive(job.pid) && isJobProcess(job)) {
         this.follow(job);
-      } else {
-        this.removeSeqeraConfig(job.dir);
-        this.store.updateJob(job.id, {
-          state: job.cancelRequested ? 'cancelled' : 'interrupted',
-          finished_at: Date.now(),
-          message: job.cancelRequested ? null : INTERRUPTED_MESSAGE,
-        });
+        continue;
       }
+      // Terminou com a plataforma fora do ar: o resultado vem do exitcode e o link, do log.
+      const logPath = job.dir ? join(job.dir, logName(job)) : null;
+      const exit = job.dir ? readExitCode(job.dir) : null;
+      if (!job.url && !isCommand(job) && logPath) {
+        const url = findSeqeraUrl(logPath);
+        if (url) this.store.updateJob(job.id, { url });
+      }
+      const { state, message } = this.outcome(job.id, exit ? exit.code : null, logPath);
+      this.removeSeqeraConfig(job.dir);
+      this.store.updateJob(job.id, { state, message, finished_at: exit?.at ? Math.round(exit.at) : Date.now(), pid: null });
     }
   }
 
@@ -164,6 +229,9 @@ export class Runner {
     writeFileSync(join(dir, 'job.json'), JSON.stringify(job.payload, null, 2));
 
     const { file, args, env, notFound } = isCommand(job) ? this.commandProcess(job, dir, rows, sheetPath) : this.nextflowProcess(job, dir, conn);
+    const executable = findExecutable(file, env.PATH);
+    if (!executable) throw new Error(notFound);
+    rmSync(join(dir, EXIT_FILE), { force: true });
 
     // Cada tentativa tem seu log. Se fosse o mesmo arquivo, o link antigo da Seqera seria lido de novo.
     const name = logName(job);
@@ -172,8 +240,9 @@ export class Runner {
     const log = openSync(logPath, 'a');
     let child;
     try {
-      // detached: o processo sobrevive a um reinício da plataforma e pode ser encerrado junto com seus filhos.
-      child = spawn(file, args, { cwd: dir, env, detached: true, stdio: ['ignore', log, log] });
+      // detached: o processo ganha sessão própria (como nohup + &), sobrevive ao fim da plataforma
+      // e do terminal, e pode ser encerrado junto com seus filhos.
+      child = spawn('/bin/sh', ['-c', EXIT_WRAPPER, 'plataforma', executable, ...args], { cwd: dir, env, detached: true, stdio: ['ignore', log, log] });
     } finally {
       closeSync(log);
     }
@@ -276,22 +345,31 @@ export class Runner {
     handle.timer = setInterval(() => {
       readNew();
       if (!child && !isProcessAlive(job.pid)) {
-        // Sem o objeto do processo (retomado após reinício), o código de saída não está disponível.
-        const cancelled = this.store.getJob(job.id).cancelRequested;
-        this.finish(job.id, cancelled ? 'cancelled' : 'interrupted', cancelled ? null : INTERRUPTED_MESSAGE);
+        // Sem o objeto do processo (retomado após reinício), o código de saída vem do arquivo do wrapper.
+        const { state, message } = this.outcome(job.id, readExitCode(job.dir)?.code ?? null, logPath);
+        this.finish(job.id, state, message);
       }
     }, this.pollMs);
     handle.timer.unref?.();
 
     if (child) {
-      child.once('exit', (code) => {
+      child.once('exit', (code, signal) => {
         readNew();
-        if (this.store.getJob(job.id).cancelRequested) this.finish(job.id, 'cancelled', null);
-        else if (code === 0) this.finish(job.id, 'succeeded', isCommand(job) ? null : this.noLinkNote(job.id));
-        else this.finish(job.id, 'failed', lastLines(logPath) || `${isCommand(job) ? 'Comando' : 'Nextflow'} terminou com código ${code}.`);
+        const { state, message } = this.outcome(job.id, code ?? signal, logPath);
+        this.finish(job.id, state, message);
       });
     }
     readNew();
+  }
+
+  // Estado final a partir do código de saída. Sem código (null), o resultado é desconhecido.
+  outcome(jobId, code, logPath) {
+    const job = this.store.getJob(jobId);
+    if (job.cancelRequested) return { state: 'cancelled', message: null };
+    if (code === null) return { state: 'interrupted', message: INTERRUPTED_MESSAGE };
+    if (code === 0) return { state: 'succeeded', message: isCommand(job) ? null : this.noLinkNote(jobId) };
+    const how = typeof code === 'number' ? `com código ${code}` : `pelo sinal ${code}`;
+    return { state: 'failed', message: lastLines(logPath) || `${isCommand(job) ? 'Comando' : 'Nextflow'} terminou ${how}.` };
   }
 
   noLinkNote(jobId) {

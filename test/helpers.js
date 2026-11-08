@@ -26,7 +26,8 @@ export function touchFastqs(root, relPaths, size = 10) {
 }
 
 // Nextflow de mentira. O comportamento depende do conteúdo do samplesheet:
-// FAILME encerra com erro; SLOW fica rodando até receber um sinal; NOLINK não imprime URL.
+// FAILME encerra com erro; SLOW fica rodando até receber um sinal; NOLINK não imprime URL;
+// MEDIUM termina sozinho depois de 1 s, tempo para a plataforma ser desligada no meio.
 export function fakeNextflow(dir) {
   const eventLog = join(dir, 'events.log');
   const path = writeExecutable(join(dir, 'bin', 'nextflow'), `#!/bin/sh
@@ -53,6 +54,9 @@ if grep -q ALWAYSFAIL samplesheet.csv || { grep -q FAILME samplesheet.csv && [ "
   echo "ERROR ~ falha simulada"
   echo "end $sample" >> "${eventLog}"
   exit 3
+fi
+if grep -q MEDIUM samplesheet.csv; then
+  sleep 1
 fi
 if grep -q SLOW samplesheet.csv; then
   sleep 60 &

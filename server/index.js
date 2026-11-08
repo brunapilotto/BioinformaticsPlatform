@@ -9,7 +9,7 @@ import { testBaseSpace, testNextflow, testSeqera } from './connections.js';
 import { ACTIVE_STATES, Store } from './db.js';
 import { groupFastqFiles, scanFolder } from './fastq.js';
 import { buildJobs, resolveParams } from './jobs.js';
-import { logName, RESUMABLE_STATES, Runner, runState } from './runner.js';
+import { logName, readLogTail, RESUMABLE_STATES, Runner, runState } from './runner.js';
 import { normalizeAnalysis, parseSchema } from './schema.js';
 import { mergeBrand, mergeConnections, publicConnections } from './settings.js';
 
@@ -331,6 +331,13 @@ export function createApp({ dataDir = process.env.PLATAFORMA_DATA || join(ROOT, 
       if (!RESUMABLE_STATES.includes(job.state)) throw new HttpError(409, 'Só execuções que falharam, foram interrompidas ou canceladas podem ser retomadas.');
       runner.resumeJob(id);
       return runView(store.getRun(job.runId));
+    },
+    'GET /api/jobs/:id/log': async ({ id }) => {
+      const job = store.getJob(id);
+      if (!job) throw new HttpError(404, 'Execução não encontrada.');
+      if (!job.dir) return { text: '', size: 0, truncated: false, path: null };
+      const path = join(job.dir, logName(job));
+      return { ...readLogTail(path), path };
     },
     'POST /api/test/nextflow': async () => testNextflow(store.getConnections()),
     'POST /api/test/seqera': async () => testSeqera(store.getConnections()),

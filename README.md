@@ -114,8 +114,9 @@ nextflow run <pipeline> [-r <revisão>] [-profile <perfil>] [-stub] \
 - **Pasta `work`:** fica sempre em `work`, dentro da pasta do job, mesmo que `NXF_WORK` esteja definido no ambiente.
 - **Limite global:** "Execuções simultâneas" em Conexões controla quantos Nextflow rodam juntos. O padrão é 1, e os demais disparos aguardam na fila.
 - **Falhas:** no modo "uma por vez", a falha de uma amostra não interrompe as seguintes.
-- **Reinício da plataforma:** a fila continua e o Nextflow em andamento segue rodando. Se ele terminar com a plataforma desligada, o job fica como "Interrompida", porque o código de saída se perde. Confira o resultado no Seqera ou nos logs.
-- **Arquivos de cada job:** `data/runs/<execução>/<job>/` (ou a pasta de trabalho configurada) guarda `job.json`, `samplesheet.csv`, `params.json`, `nextflow.out` e a pasta `work` do Nextflow. Nos comandos, `nextflow.out` e `work` dão lugar a `comando.sh` e `comando.out`.
+- **Independência da plataforma:** cada execução roda em uma sessão própria do sistema, com o mesmo efeito de `nohup` mais `&`. Ela continua rodando se a plataforma cair, for encerrada com Ctrl+C ou tiver o terminal fechado. Um wrapper de shell grava o código de saída em `exitcode`, na pasta do job.
+- **Reinício da plataforma:** a fila continua e as execuções em andamento voltam a ser acompanhadas. Se uma terminou com a plataforma desligada, o resultado vem do `exitcode`: Sucesso ou Falhou, com o horário real do término e o link da Seqera lido do log. Só fica como "Interrompida" quando esse arquivo não existe, por exemplo quando o processo foi morto com `kill -9` ou a máquina desligou.
+- **Arquivos de cada job:** `data/runs/<execução>/<job>/` (ou a pasta de trabalho configurada) guarda `job.json`, `samplesheet.csv`, `params.json`, `nextflow.out`, `exitcode` e a pasta `work` do Nextflow. Nos comandos, `nextflow.out` e `work` dão lugar a `comando.sh` e `comando.out`.
 - **BaseSpace:** só as amostras selecionadas são baixadas, para `data/basespace/<projeto>/`. Arquivos já baixados com o tamanho certo são reaproveitados. Essas pastas não são limpas automaticamente.
 
 ## Histórico e informações da execução
@@ -134,6 +135,8 @@ O **Histórico** lista os disparos e seus status:
 **Informações** abre tudo sobre a execução: tempo estimado, parâmetros, origem, amostras e, para cada execução do Nextflow, o link da Seqera, o comando, a pasta `work` e a pasta do job. O comando não inclui o token.
 
 Com mais de 3 execuções, os detalhes de cada uma ficam recolhidos, exceto as que falharam ou foram interrompidas.
+
+**Ver log** mostra a saída da execução, lida do arquivo na pasta do job. Funciona mesmo que a página tenha sido recarregada ou a plataforma reiniciada durante a execução, e se atualiza sozinho enquanto o job roda. Em logs grandes, aparecem os últimos 64 KB.
 
 **Retomar (-resume)** aparece em cada execução que falhou, foi interrompida ou cancelada. No modo "uma por vez", cada amostra tem o próprio botão. Uma amostra cancelada enquanto ainda estava na fila não tem cache e roda do início. A retomada roda na mesma pasta do job, o que permite ao Nextflow reaproveitar as etapas prontas de `work`. Ela usa um novo `-name`, gera um novo link da Seqera e aplica as configurações atuais de Conexões. O link, o comando e o erro de cada tentativa anterior continuam disponíveis, e os logs ficam em `nextflow.tentativa-<n>.out`.
 
