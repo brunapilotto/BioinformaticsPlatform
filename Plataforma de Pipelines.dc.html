@@ -581,7 +581,21 @@ a:hover{color:var(--color-accent-300)}
         <div class="field"><label>Perfil Nextflow (opcional)</label><input class="input" value="{{ draft.profile }}" onChange="{{ onDraft.profile }}" placeholder="docker" style="font-family:ui-monospace,Menlo,monospace;font-size:13px"></div>
         </sc-if>
         <div class="field"><label>{{ minutesLabel }}</label><input class="input" type="number" min="1" value="{{ draft.minutes }}" onChange="{{ onDraft.minutes }}"></div>
-        <sc-if value="{{ draftUsesSamples }}" hint-placeholder-val="{{ true }}"><div class="field"><label>Amostras em paralelo</label><input class="input" type="number" min="1" value="{{ draft.slots }}" onChange="{{ onDraft.slots }}"></div></sc-if>
+        <sc-if value="{{ draftUsesSamples }}" hint-placeholder-val="{{ true }}">
+        <div class="field" style="position:relative">
+          <label style="display:flex;align-items:center;gap:4px">Amostras em paralelo<button type="button" class="btn btn-ghost btn-icon" onClick="{{ toggleSlotsHelp }}" aria-expanded="{{ slotsHelpOpen }}" aria-label="O que é Amostras em paralelo?" title="O que é isto?" style="width:20px;height:20px;font-size:15px;border-radius:50%"><i class="ph ph-question"></i></button></label>
+          <input class="input" type="number" min="1" value="{{ draft.slots }}" onChange="{{ onDraft.slots }}">
+          <sc-if value="{{ slotsHelpOpen }}" hint-placeholder-val="{{ false }}">
+          <div class="card" role="note" style="position:absolute;top:calc(100% + 6px);left:0;z-index:15;width:min(380px,calc(100vw - 32px));box-sizing:border-box;padding:14px 16px;gap:10px;font-size:13px;line-height:1.5;box-shadow:var(--shadow-md);border:1px solid var(--color-divider)">
+            <div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:14px">Amostras em paralelo</span><button type="button" class="btn btn-ghost btn-icon" onClick="{{ toggleSlotsHelp }}" aria-label="Fechar" style="width:24px;height:24px"><i class="ph ph-x"></i></button></div>
+            <sc-for list="{{ slotsHelp }}" as="h" hint-placeholder-count="3">
+            <div style="display:flex;flex-direction:column;gap:2px"><span class="card-kicker">{{ h.title }}</span><span>{{ h.text }}</span></div>
+            </sc-for>
+            <div class="text-muted" style="font-size:12px">Para rodar disparos diferentes ao mesmo tempo, ajuste "Execuções simultâneas" em Conexões.</div>
+          </div>
+          </sc-if>
+        </div>
+        </sc-if>
         <div class="field" style="grid-column:1 / -1"><label>Descrição</label><input class="input" value="{{ draft.description }}" onChange="{{ onDraft.description }}"></div>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px"><input type="checkbox" checked="{{ draft.enabled }}" onChange="{{ onDraft.enabled }}" style="width:16px;height:16px;accent-color:var(--color-accent);margin:0">Visível no catálogo</label>
         <sc-if value="{{ kindNf }}" hint-placeholder-val="{{ true }}"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px"><input type="checkbox" checked="{{ draft.stub }}" onChange="{{ onDraft.stub }}" style="width:16px;height:16px;accent-color:var(--color-accent);margin:0">Modo stub (-stub, para testes)</label></sc-if>
@@ -793,7 +807,7 @@ const etaFor=(a,n,mode)=>{const per=+a.minutes||0,slots=Math.max(1,+a.slots||1);
 
 class Component extends DCLogic {
   state={ready:false,loadError:'',view:'catalog',adminTab:'analyses',analyses:[],brand:{name:'',logo:'',accent:DEFAULT_ACCENT},conn:{},seqeraToken:'',runs:[],recentPaths:[],
-    search:'',run:null,draft:null,preview:{},resultId:null,copied:'',connTest:{},picker:null,saving:false,saveError:'',adminError:'',deleteOpen:false,cancelId:null,cancelError:'',pollFailed:false,logs:{},deleteRunId:null,deleteRunError:'',firedId:null,resuming:{},resumeError:''};
+    search:'',run:null,draft:null,preview:{},resultId:null,copied:'',connTest:{},picker:null,saving:false,saveError:'',adminError:'',deleteOpen:false,cancelId:null,cancelError:'',pollFailed:false,logs:{},slotsHelp:false,deleteRunId:null,deleteRunError:'',firedId:null,resuming:{},resumeError:''};
 
   componentDidMount(){this.load();
     this.timer=setInterval(()=>{if(['result','history'].includes(this.state.view))this.refreshRuns();},POLL_MS);}
@@ -893,7 +907,7 @@ class Component extends DCLogic {
       this.setState(st=>({runs:st.runs.filter(x=>x.id!==id),deleteRunId:null,deleteRunError:'',resultId:st.resultId===id?null:st.resultId}));
     }catch(e){this.setState({deleteRunError:e.message});}}
 
-  editAnalysis(a){this.setState({draft:{...a,_orig:a.id},preview:{},saveError:'',deleteOpen:false});}
+  editAnalysis(a){this.setState({draft:{...a,_orig:a.id},preview:{},saveError:'',deleteOpen:false,slotsHelp:false});}
   setDraft(k,v){this.setState(st=>{const d={...st.draft,[k]:v};if(k==='name'&&!st.draft._orig&&(!st.draft.id||st.draft.id===slug(st.draft.name)))d.id=slug(v);return {draft:d};});}
   async saveDraft(){const {_orig,...a}=this.state.draft;this.setState({saving:true,saveError:''});
     try{const saved=await api(_orig?`/api/analyses/${encodeURIComponent(_orig)}`:'/api/analyses',_orig?'PUT':'POST',a);
@@ -1086,7 +1100,7 @@ class Component extends DCLogic {
     out.hasAdminError=!!s.adminError;out.adminError=s.adminError;
     out.adminRows=s.analyses.map(a=>({...a,...analysisRef(a),perSample:`${fmtDur(a.minutes)} ${usesSamples(a)?'por amostra':'por execução'}`,status:a.enabled?'Ativa':'Inativa',tagClass:a.enabled?'tag tag-accent':'tag tag-neutral',
       toggle:()=>this.toggleAnalysis(a),edit:()=>this.editAnalysis(a)}));
-    out.newAnalysis=()=>this.setState({saveError:'',deleteOpen:false,draft:{id:'',name:'',category:'',description:'',kind:'nextflow',pipeline:'',revision:'',profile:'',command:'',minutes:30,slots:4,enabled:true,stub:false,
+    out.newAnalysis=()=>this.setState({saveError:'',deleteOpen:false,slotsHelp:false,draft:{id:'',name:'',category:'',description:'',kind:'nextflow',pipeline:'',revision:'',profile:'',command:'',minutes:30,slots:4,enabled:true,stub:false,
       schema:J([SF,{key:'data_type',type:'select',label:'Tipo de dado',required:true,options:['WES','WGS'],default:'WES'},OUT])},preview:{}});
 
     if(s.draft){const d=s.draft,sc=parseSchema(d.schema);
@@ -1098,7 +1112,17 @@ class Component extends DCLogic {
       const problems=[!d.name.trim()&&'nome',!d.id.trim()&&'identificador',dup&&'identificador já existe',!cmd&&!(d.pipeline||'').trim()&&'pipeline',cmd&&!String(d.command||'').trim()&&'comando',
         !sc.ok&&'schema inválido',!cmd&&sc.ok&&!hasSamples&&'samplesheet (use o botão Samplesheet)',reserved.length&&`key reservada nos comandos (${reserved.join(', ')})`,!(+d.minutes>0)&&'tempo médio'].filter(Boolean);
       out.kindNf=!cmd;out.kindCmd=cmd;out.setKindNf=()=>this.setDraft('kind','nextflow');out.setKindCmd=()=>this.setDraft('kind','command');
-      out.draftUsesSamples=!cmd||hasSamples;out.minutesLabel=cmd&&!hasSamples?'Tempo médio por execução (min)':'Tempo médio por amostra (min)';
+      out.draftUsesSamples=!cmd||hasSamples;
+      // Explicação do (?) de "Amostras em paralelo", com um exemplo calculado a partir do formulário.
+      const perSampleCmd=cmd&&[...String(d.command||'').matchAll(PH_RE)].some(m=>['sample','r1','r2'].includes(m[1]));
+      const exMin=+d.minutes>0?+d.minutes:60,exSlots=Math.max(1,Math.floor(+d.slots)||1),exN=8;
+      out.slotsHelpOpen=!!s.slotsHelp;out.toggleSlotsHelp=e=>{e&&e.preventDefault();this.setState(st=>({slotsHelp:!st.slotsHelp}));};
+      out.slotsHelp=[
+        {title:'Todas ao mesmo tempo',text:!cmd?'Só muda a estimativa de tempo: tempo médio × ⌈amostras ÷ este valor⌉. Quantas amostras o Nextflow processa juntas depende da configuração da pipeline, não da plataforma.'
+          :perSampleCmd?'O comando roda em grupos com esta quantidade de amostras ao mesmo tempo. O grupo seguinte começa quando o anterior termina.'
+          :'Só muda a estimativa: este comando não usa {sample}, {r1} ou {r2}, então roda uma vez com todas as amostras no samplesheet.'},
+        {title:'Uma amostra por vez',text:'Não tem efeito: cada amostra é uma execução, e elas rodam uma após a outra.'},
+        {title:'Exemplo',text:`${exN} amostras de ${fmtDur(exMin)}: uma por vez ≈ ${fmtDur(exMin*exN)}; todas ao mesmo tempo, com ${exSlots} em paralelo, ≈ ${fmtDur(exMin*Math.ceil(exN/exSlots))}.`}];out.minutesLabel=cmd&&!hasSamples?'Tempo médio por execução (min)':'Tempo médio por amostra (min)';
       const avail=[...sc.fields.filter(f=>f.type!=='samples').map(f=>f.key),...(hasSamples?CMD_RESERVED:[])];
       const unknown=[...new Set([...String(d.command||'').matchAll(PH_RE)].map(m=>m[1]))].filter(k=>!avail.includes(k));
       out.cmdAvail=avail.length?avail.map(k=>`{${k}}`).join(' '):'nenhum';out.hasCmdUnknown=cmd&&unknown.length>0;
